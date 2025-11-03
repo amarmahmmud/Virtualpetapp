@@ -1,0 +1,51 @@
+name: Build & Distribute to Firebase
+
+on:
+  push:
+    branches: [main]
+
+env:
+  SKIP_IOS_UPLOAD: true  # <-- set to true to skip iOS upload, false or unset to run it
+
+
+jobs:
+  build:
+    name: ${{ github.ref_name }}
+    runs-on: macos-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: 📦 Install npm dependencies
+        run: npm install
+
+      - name: 📥 Install CocoaPods
+        run: |
+          cd ios
+          pod install
+          cd ..
+
+      - name: Make scripts executable
+        run: |
+          chmod +x .github/scripts/build-ios.sh
+          chmod +x .github/scripts/package-app-ios.sh
+          chmod +x .github/scripts/upload-firebase-ios.sh
+
+      - name: Run iOS build script
+        run: .github/scripts/build-ios.sh
+
+      - name: Package .app into .ipa
+        run: .github/scripts/package-app-ios.sh
+
+      - name: Upload to Firebase (Optional)
+        if: env.SKIP_IOS_UPLOAD != 'true'   # will run only if SKIP_IOS_UPLOAD is NOT true
+        env:
+          IOS_APP_ID: ${{ secrets.IOS_APP_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: .github/scripts/upload-firebase-ios.sh
