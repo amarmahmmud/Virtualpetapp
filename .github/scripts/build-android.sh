@@ -3,7 +3,7 @@ set -e
 
 echo "🛠️ Building Android APK (Release)..."
 
-cd android
+cd Virtualpetapp
 
 # Ensure Gradle wrapper is executable
 chmod +x ./gradlew
