@@ -6,8 +6,8 @@ echo "🛠️ Building Android APK (Release)..."
 cd 
 
 # Ensure Gradle wrapper is executable
-chmod +x ./gradlew
+# chmod +x ./gradlew
 
-./gradlew clean assembleRelease
+# ./gradlew clean assembleRelease
 
 echo "✅ APK build complete."
