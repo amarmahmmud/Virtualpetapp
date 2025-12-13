@@ -74,12 +74,19 @@ export function InventoryManagement() {
     return () => unsubscribe();
   }, []);
 
+  const getStockStatus = (quantity: number, threshold: number) => {
+    if (quantity <= 0) return { label: "Out of Stock", color: "bg-red-600" };
+    if (quantity <= threshold) return { label: "Low Stock", color: "bg-red-500" };
+    if (quantity <= threshold * 2) return { label: "Medium", color: "bg-orange-500" };
+    return { label: "In Stock", color: "bg-green-500" };
+  };
+
   // Filter and sort ingredients
   const filteredAndSortedIngredients = useMemo(() => {
     let filtered = ingredients.filter(ingredient => {
       const matchesSearch = ingredient.name.toLowerCase().includes(searchQuery.toLowerCase());
       const status = getStockStatus(ingredient.quantity, ingredient.threshold);
-      const matchesFilter = 
+      const matchesFilter =
         stockFilter === "all" ||
         (stockFilter === "low" && ingredient.quantity <= ingredient.threshold && ingredient.quantity > 0) ||
         (stockFilter === "out" && ingredient.quantity <= 0);
@@ -224,13 +231,6 @@ export function InventoryManagement() {
       threshold: ingredient.threshold.toString(),
     });
     setDialogOpen(true);
-  };
-
-  const getStockStatus = (quantity: number, threshold: number) => {
-    if (quantity <= 0) return { label: "Out of Stock", color: "bg-red-600" };
-    if (quantity <= threshold) return { label: "Low Stock", color: "bg-red-500" };
-    if (quantity <= threshold * 2) return { label: "Medium", color: "bg-orange-500" };
-    return { label: "In Stock", color: "bg-green-500" };
   };
 
   if (loading) {
