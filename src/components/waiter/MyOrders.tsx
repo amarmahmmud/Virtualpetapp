@@ -7,8 +7,9 @@ import { Badge } from "../ui/badge";
 
 interface Order {
   id: string;
+  orderNumber?: number;
   tableNumber: number;
-  status: "pending" | "in-kitchen" | "ready" | "paid" | "confirmed";
+  status: "pending" | "in-kitchen" | "at-bar" | "ready" | "picked" | "paid" | "confirmed";
   items: { name: string; quantity: number; price: number }[];
   timeElapsed: string;
   createdAt: Date;
@@ -17,9 +18,11 @@ interface Order {
 interface MyOrdersProps {
   orders: Order[];
   onMarkAsPaid: (orderId: string, paymentMethod: "cash" | "mobile") => void;
+  onPickUp: (orderId: string) => void;
+  onCancelOrder?: (orderId: string) => void;
 }
 
-export function MyOrders({ orders, onMarkAsPaid }: MyOrdersProps) {
+export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder }: MyOrdersProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
 
@@ -53,6 +56,7 @@ export function MyOrders({ orders, onMarkAsPaid }: MyOrdersProps) {
             <OrderCard
               key={order.id}
               orderId={order.id}
+              orderNumber={order.orderNumber}
               tableNumber={order.tableNumber}
               status={order.status}
               itemCount={order.items.length}
@@ -66,7 +70,7 @@ export function MyOrders({ orders, onMarkAsPaid }: MyOrdersProps) {
       <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open) => !open && setSelectedOrder(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Order #{selectedOrder?.id}</DialogTitle>
+            <DialogTitle>Order #{selectedOrder?.orderNumber || selectedOrder?.id}</DialogTitle>
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-4">
@@ -74,10 +78,12 @@ export function MyOrders({ orders, onMarkAsPaid }: MyOrdersProps) {
                 <p className="text-gray-600">Table {selectedOrder.tableNumber}</p>
                 <Badge className={`mt-2 ${
                   selectedOrder.status === "ready" ? "bg-green-500" :
+                  selectedOrder.status === "picked" ? "bg-blue-500" :
                   selectedOrder.status === "in-kitchen" ? "bg-orange-500" :
                   "bg-gray-500"
                 } text-white border-0`}>
                   {selectedOrder.status === "ready" ? "Ready for Pickup" :
+                   selectedOrder.status === "picked" ? "Picked Up" :
                    selectedOrder.status === "in-kitchen" ? "In Kitchen" :
                    selectedOrder.status === "paid" ? "Paid" : "Pending"}
                 </Badge>
@@ -103,20 +109,36 @@ export function MyOrders({ orders, onMarkAsPaid }: MyOrdersProps) {
               </div>
 
               <div className="space-y-2">
+                {selectedOrder.status !== "paid" && selectedOrder.status !== "confirmed" && onCancelOrder && (
+                  <Button
+                    className="w-full bg-red-600 hover:bg-red-700"
+                    onClick={() => onCancelOrder(selectedOrder.id)}
+                  >
+                    Cancel Order
+                  </Button>
+                )}
                 <Button
                   className="w-full bg-blue-600 hover:bg-blue-700"
                   onClick={() => {
-                    alert(`Bill generated for Order #${selectedOrder.id}\nTotal: $${getTotalPrice(selectedOrder.items).toFixed(2)}`);
+                    alert(`Bill generated for Order #${selectedOrder.orderNumber || selectedOrder.id}\nTotal: $${getTotalPrice(selectedOrder.items).toFixed(2)}`);
                   }}
                 >
                   Generate Final Bill
                 </Button>
                 {selectedOrder.status === "ready" && (
                   <Button
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    onClick={() => onPickUp(selectedOrder.id)}
+                  >
+                    Pick Up
+                  </Button>
+                )}
+                {(selectedOrder.status === "picked" || selectedOrder.status === "paid") && (
+                  <Button
                     className="w-full bg-green-600 hover:bg-green-700"
                     onClick={() => setShowPaymentOptions(true)}
                   >
-                    Mark as Paid
+                    {selectedOrder.status === "paid" ? "Paid" : "Mark as Paid"}
                   </Button>
                 )}
               </div>

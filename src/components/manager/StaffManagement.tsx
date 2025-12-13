@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
@@ -7,21 +7,16 @@ import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Plus, Edit } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, doc, deleteDoc, setDoc } from "firebase/firestore";
+import { db } from "../../firebase";
 
 interface Staff {
   id: string;
   name: string;
   email: string;
   role: string;
+  status: 'pending' | 'approved';
 }
-
-const initialStaff: Staff[] = [
-  { id: "1", name: "John Manager", email: "manager@bistro.com", role: "Manager" },
-  { id: "2", name: "Sarah Waiter", email: "waiter@bistro.com", role: "Waiter" },
-  { id: "3", name: "Mike Cashier", email: "cashier@bistro.com", role: "Cashier" },
-  { id: "4", name: "Tom Butcher", email: "butcher@bistro.com", role: "Butcher" },
-  { id: "5", name: "Lisa Kitchen", email: "kitchen@bistro.com", role: "Kitchen" },
-];
 
 const roleColors: Record<string, string> = {
   Manager: "bg-purple-500",
@@ -29,56 +24,92 @@ const roleColors: Record<string, string> = {
   Cashier: "bg-green-500",
   Butcher: "bg-orange-500",
   Kitchen: "bg-red-500",
+  Bar: "bg-indigo-500",
 };
 
 export function StaffManagement() {
-  const [staff, setStaff] = useState<Staff[]>(initialStaff);
+  const [staff, setStaff] = useState<Staff[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    password: "",
     role: "Waiter",
+    status: "pending" as 'pending' | 'approved',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fetch staff from Firebase
+  useEffect(() => {
+    const staffQuery = collection(db, 'staff');
+    const unsubscribe = onSnapshot(staffQuery, (snapshot) => {
+      const staffData: Staff[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        staffData.push({
+          id: doc.id,
+          name: data.name || data.email || doc.id.split('@')[0] || 'Unknown',
+          email: doc.id, // email is the document ID
+          role: data.role || 'Waiter',
+          status: data.status || 'pending',
+        });
+      });
+      setStaff(staffData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingStaff) {
-      setStaff(
-        staff.map((s) =>
-          s.id === editingStaff.id
-            ? { ...s, name: formData.name, email: formData.email, role: formData.role }
-            : s
-        )
-      );
-    } else {
-      setStaff([
-        ...staff,
-        {
-          id: Date.now().toString(),
+    try {
+      if (editingStaff) {
+        await updateDoc(doc(db, 'staff', editingStaff.id), {
           name: formData.name,
-          email: formData.email,
           role: formData.role,
-        },
-      ]);
+          status: formData.status,
+        });
+      } else {
+        // For new staff, add to Firestore with email as document ID
+        await setDoc(doc(db, 'staff', formData.email), {
+          name: formData.name,
+          role: formData.role,
+          status: formData.status,
+        });
+      }
+      setDialogOpen(false);
+      setFormData({ name: "", email: "", role: "Waiter", status: "pending" });
+      setEditingStaff(null);
+    } catch (error) {
+      console.error('Error saving staff:', error);
     }
-    setDialogOpen(false);
-    setFormData({ name: "", email: "", password: "", role: "Waiter" });
-    setEditingStaff(null);
   };
 
   const openAddDialog = () => {
     setEditingStaff(null);
-    setFormData({ name: "", email: "", password: "", role: "Waiter" });
+    setFormData({ name: "", email: "", role: "Waiter", status: "pending" });
     setDialogOpen(true);
   };
 
   const openEditDialog = (staff: Staff) => {
     setEditingStaff(staff);
-    setFormData({ name: staff.name, email: staff.email, password: "", role: staff.role });
+    setFormData({ name: staff.name, email: staff.email, role: staff.role, status: staff.status });
     setDialogOpen(true);
   };
+
+  if (loading) {
+    return (
+      <div className="p-4 pb-20">
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading staff...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4 pb-20">
@@ -94,6 +125,11 @@ export function StaffManagement() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingStaff ? "Edit Staff Member" : "Add New Staff Member"}</DialogTitle>
+              {!editingStaff && (
+                <p className="text-sm text-gray-600 mt-2">
+                  This creates a staff record. The staff member will register themselves through the login screen.
+                </p>
+              )}
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -116,17 +152,6 @@ export function StaffManagement() {
                 />
               </div>
               <div>
-                <Label htmlFor="staff-password">Password</Label>
-                <Input
-                  id="staff-password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required={!editingStaff}
-                  placeholder={editingStaff ? "Leave blank to keep current" : ""}
-                />
-              </div>
-              <div>
                 <Label htmlFor="staff-role">Role</Label>
                 <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                   <SelectTrigger>
@@ -138,6 +163,19 @@ export function StaffManagement() {
                     <SelectItem value="Cashier">Cashier</SelectItem>
                     <SelectItem value="Butcher">Butcher</SelectItem>
                     <SelectItem value="Kitchen">Kitchen</SelectItem>
+                    <SelectItem value="Bar">Bar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="staff-status">Status</Label>
+                <Select value={formData.status} onValueChange={(value: 'pending' | 'approved') => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -156,9 +194,14 @@ export function StaffManagement() {
               <div className="flex-1">
                 <p>{member.name}</p>
                 <p className="text-gray-600 mt-1">{member.email}</p>
-                <Badge className={`${roleColors[member.role]} text-white border-0 mt-2`}>
-                  {member.role}
-                </Badge>
+                <div className="flex gap-2 mt-2">
+                  <Badge className={`${roleColors[member.role]} text-white border-0`}>
+                    {member.role}
+                  </Badge>
+                  <Badge className={`${member.status === 'approved' ? 'bg-green-500' : 'bg-yellow-500'} text-white border-0`}>
+                    {member.status === 'approved' ? 'Approved' : 'Pending'}
+                  </Badge>
+                </div>
               </div>
               <Button variant="outline" size="sm" onClick={() => openEditDialog(member)}>
                 <Edit className="w-4 h-4" />

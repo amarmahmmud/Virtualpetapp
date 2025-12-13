@@ -4,8 +4,9 @@ import { Clock } from "lucide-react";
 
 interface OrderCardProps {
   orderId: string;
+  orderNumber?: number;
   tableNumber: number;
-  status: "pending" | "in-kitchen" | "ready" | "paid" | "confirmed";
+  status: "pending" | "in-kitchen" | "at-bar" | "ready" | "picked" | "paid" | "confirmed";
   itemCount: number;
   timeElapsed: string;
   onClick?: () => void;
@@ -14,7 +15,9 @@ interface OrderCardProps {
 const statusColors = {
   pending: "bg-orange-500",
   "in-kitchen": "bg-orange-500",
+  "at-bar": "bg-purple-500",
   ready: "bg-green-500",
+  picked: "bg-purple-500",
   paid: "bg-blue-500",
   confirmed: "bg-gray-500",
 };
@@ -22,13 +25,16 @@ const statusColors = {
 const statusLabels = {
   pending: "Pending",
   "in-kitchen": "In Kitchen",
+  "at-bar": "At Bar",
   ready: "Ready for Pickup",
+  picked: "Picked Up",
   paid: "Paid",
   confirmed: "Confirmed",
 };
 
 export function OrderCard({
   orderId,
+  orderNumber,
   tableNumber,
   status,
   itemCount,
@@ -42,7 +48,7 @@ export function OrderCard({
     >
       <div className="flex items-start justify-between mb-2">
         <div>
-          <p className="text-gray-500">Order #{orderId}</p>
+          <p className="text-gray-500">Order #{orderNumber || orderId}</p>
           <p className="mt-1">Table {tableNumber}</p>
         </div>
         <Badge className={`${statusColors[status]} text-white border-0`}>

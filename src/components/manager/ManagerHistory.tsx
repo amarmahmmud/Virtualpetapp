@@ -1,31 +1,70 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { HistoryListItem } from "../HistoryListItem";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Search, Filter } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
+import { db } from "../../firebase";
 
-const historyData = [
-  { timestamp: "10:45 AM", role: "Butcher", description: "Steak (x1) for Order 101 prepped" },
-  { timestamp: "10:43 AM", role: "Waiter", description: "Order 101 submitted for Table 5" },
-  { timestamp: "10:40 AM", role: "Cashier", description: "Payment for Order 98 confirmed - Cash" },
-  { timestamp: "10:38 AM", role: "Kitchen", description: "Order 98 marked ready for pickup" },
-  { timestamp: "10:35 AM", role: "Waiter", description: "Order 98 marked as paid" },
-  { timestamp: "10:32 AM", role: "Butcher", description: "Ribs (x2) for Order 99 prepped" },
-  { timestamp: "10:30 AM", role: "Kitchen", description: "Order 97 marked ready for pickup" },
-  { timestamp: "10:28 AM", role: "Waiter", description: "Order 99 submitted for Table 3" },
-];
+interface Activity {
+  id: string;
+  timestamp: Date;
+  role: string;
+  description: string;
+}
 
 export function ManagerHistory() {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
-  const filteredHistory = historyData.filter((item) => {
+  // Fetch activities from Firebase
+  useEffect(() => {
+    const activitiesQuery = query(
+      collection(db, 'activities'),
+      orderBy('timestamp', 'desc'),
+      limit(100) // Limit to prevent loading too much data
+    );
+
+    const unsubscribe = onSnapshot(activitiesQuery, (snapshot) => {
+      const activitiesData: Activity[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        activitiesData.push({
+          id: doc.id,
+          timestamp: data.timestamp?.toDate() || new Date(),
+          role: data.role || 'Unknown',
+          description: data.description || '',
+        });
+      });
+      setActivities(activitiesData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const filteredHistory = activities.filter((item) => {
     const matchesSearch = item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.role.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === "all" || item.role === roleFilter;
     return matchesSearch && matchesRole;
   });
+
+  if (loading) {
+    return (
+      <div className="p-4 pb-20">
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading activity history...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4 pb-20">
@@ -52,19 +91,33 @@ export function ManagerHistory() {
             <SelectItem value="Cashier">Cashier</SelectItem>
             <SelectItem value="Butcher">Butcher</SelectItem>
             <SelectItem value="Kitchen">Kitchen</SelectItem>
+            <SelectItem value="Bar">Bar</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
-        {filteredHistory.map((item, index) => (
-          <HistoryListItem
-            key={index}
-            timestamp={item.timestamp}
-            description={item.description}
-            role={item.role}
-          />
-        ))}
+        {filteredHistory.length > 0 ? (
+          filteredHistory.map((item) => (
+            <HistoryListItem
+              key={item.id}
+              timestamp={item.timestamp.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              })}
+              description={item.description}
+              role={item.role}
+            />
+          ))
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <p>No activities found matching your filters.</p>
+            {activities.length === 0 && (
+              <p className="text-sm mt-2">Activities will appear here as staff perform actions in the restaurant.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

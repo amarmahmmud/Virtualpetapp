@@ -1,0 +1,34 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if the requesting user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check user role
+    function getUserRole() {
+      return request.auth != null &&
+             request.auth.token.email != null &&
+             firestore.exists(/databases/(default)/documents/staff/$(request.auth.token.email)) &&
+             firestore.get(/databases/(default)/documents/staff/$(request.auth.token.email)).data.role;
+    }
+
+    // Allow all authenticated users to read files
+    match /{allPaths=**} {
+      allow read: if isAuthenticated();
+      // Allow authenticated users to upload payment proofs
+      allow create: if isAuthenticated() &&
+                       request.resource.size < 10 * 1024 * 1024 && // 10MB limit
+                       request.resource.contentType.matches('image/.*') &&
+                       request.path.startsWith('payment-proofs/');
+      // Allow updates for existing files (if needed)
+      allow update: if isAuthenticated() &&
+                       request.resource.size < 10 * 1024 * 1024 &&
+                       request.resource.contentType.matches('image/.*');
+      // Allow delete for managers only
+      allow delete: if isAuthenticated() &&
+                       getUserRole() == 'Manager';
+    }
+  }
+}

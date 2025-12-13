@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Plus } from "lucide-react";
 
 interface Table {
   number: number;
@@ -8,28 +10,22 @@ interface Table {
 }
 
 interface TablesProps {
+  tables: Table[];
   onSelectTable: (tableNumber: number) => void;
+  onAddTable: () => void;
 }
 
-const initialTables: Table[] = [
-  { number: 1, status: "available" },
-  { number: 2, status: "occupied" },
-  { number: 3, status: "available" },
-  { number: 4, status: "available" },
-  { number: 5, status: "occupied" },
-  { number: 6, status: "available" },
-  { number: 7, status: "available" },
-  { number: 8, status: "occupied" },
-  { number: 9, status: "available" },
-  { number: 10, status: "available" },
-];
-
-export function Tables({ onSelectTable }: TablesProps) {
-  const [tables] = useState<Table[]>(initialTables);
+export function Tables({ tables, onSelectTable, onAddTable }: TablesProps) {
 
   return (
     <div className="p-4 pb-20">
-      <h2 className="mb-4">Table Management</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2>Table Management</h2>
+        <Button onClick={onAddTable} className="bg-blue-600 hover:bg-blue-700">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Table
+        </Button>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {tables.map((table) => (
           <Card

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
-import { Search, ShoppingCart, ArrowLeft } from "lucide-react";
+import { Search, ShoppingCart, ArrowLeft, LogOut } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { db } from "../../firebase";
 
 interface MenuItem {
   id: string;
@@ -22,24 +24,36 @@ interface NewOrderProps {
   tableNumber: number;
   onBack: () => void;
   onSubmitOrder: (tableNumber: number, items: CartItem[]) => void;
+  onLogout: () => void;
 }
 
-const menuItems: MenuItem[] = [
-  { id: "1", name: "Grilled Steak", price: 24.99, category: "Food" },
-  { id: "2", name: "BBQ Ribs", price: 22.99, category: "Food" },
-  { id: "3", name: "Caesar Salad", price: 12.99, category: "Food" },
-  { id: "4", name: "Pasta Carbonara", price: 16.99, category: "Food" },
-  { id: "5", name: "Soda", price: 2.99, category: "Drinks" },
-  { id: "6", name: "Fresh Juice", price: 4.99, category: "Drinks" },
-  { id: "7", name: "Coffee", price: 3.99, category: "Drinks" },
-  { id: "8", name: "Chocolate Cake", price: 8.99, category: "Desserts" },
-  { id: "9", name: "Ice Cream", price: 6.99, category: "Desserts" },
-];
-
-export function NewOrder({ tableNumber, onBack, onSubmitOrder }: NewOrderProps) {
+export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOrderProps) {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch menu items from Firebase
+  useEffect(() => {
+    const menuQuery = query(collection(db, 'menu'), orderBy('name'));
+    const unsubscribe = onSnapshot(menuQuery, (snapshot) => {
+      const menuData: MenuItem[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        menuData.push({
+          id: doc.id,
+          name: data.name,
+          price: data.price,
+          category: data.category,
+        });
+      });
+      setMenuItems(menuData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const addToCart = (item: MenuItem) => {
     const existingItem = cart.find((i) => i.id === item.id);
@@ -81,14 +95,45 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder }: NewOrderProps) 
     onBack();
   };
 
+  if (loading) {
+    return (
+      <div className="pb-24">
+        <div className="p-4 bg-white border-b sticky top-0 z-10">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={onBack}>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <h2>New Order - Table {tableNumber}</h2>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onLogout} className="text-gray-600">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading menu...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pb-24">
       <div className="p-4 bg-white border-b sticky top-0 z-10">
-        <div className="flex items-center gap-3 mb-3">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="w-4 h-4" />
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <h2>New Order - Table {tableNumber}</h2>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onLogout} className="text-gray-600">
+            <LogOut className="w-4 h-4" />
           </Button>
-          <h2>New Order - Table {tableNumber}</h2>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -102,13 +147,34 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder }: NewOrderProps) 
       </div>
 
       <Tabs defaultValue="Food" className="p-4">
-        <TabsList className="w-full">
-          <TabsTrigger value="Food" className="flex-1">Food</TabsTrigger>
-          <TabsTrigger value="Drinks" className="flex-1">Drinks</TabsTrigger>
-          <TabsTrigger value="Desserts" className="flex-1">Desserts</TabsTrigger>
+        <TabsList className="flex gap-2 mb-4 overflow-x-auto pb-2 bg-transparent h-auto p-0">
+          <TabsTrigger
+            value="Food"
+            className="flex-1 min-w-0 px-4 py-3 rounded-lg font-medium transition-all data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-gray-200 hover:border-blue-300 bg-white"
+          >
+            🍽️ Food
+          </TabsTrigger>
+          <TabsTrigger
+            value="Food-Butcher"
+            className="flex-1 min-w-0 px-4 py-3 rounded-lg font-medium transition-all data-[state=active]:bg-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-gray-200 hover:border-orange-300 bg-white"
+          >
+            🥩 Butcher
+          </TabsTrigger>
+          <TabsTrigger
+            value="Drinks"
+            className="flex-1 min-w-0 px-4 py-3 rounded-lg font-medium transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-gray-200 hover:border-purple-300 bg-white"
+          >
+            🍹 Drinks
+          </TabsTrigger>
+          <TabsTrigger
+            value="Desserts"
+            className="flex-1 min-w-0 px-4 py-3 rounded-lg font-medium transition-all data-[state=active]:bg-pink-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-gray-200 hover:border-pink-300 bg-white"
+          >
+            🍰 Desserts
+          </TabsTrigger>
         </TabsList>
 
-        {["Food", "Drinks", "Desserts"].map((category) => (
+        {["Food", "Food-Butcher", "Drinks", "Desserts"].map((category) => (
           <TabsContent key={category} value={category} className="space-y-3 mt-4">
             {filteredItems
               .filter((item) => item.category === category)
