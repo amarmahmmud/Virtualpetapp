@@ -132,12 +132,6 @@ export function LoginScreen() {
           <p>• Register with any email/password to create account</p>
           <p>• New accounts start with "Pending" status</p>
           <p>• Manager must approve accounts before use</p>
-          <p className="text-center mb-2 mt-4 font-medium">Demo Accounts (if created):</p>
-          <p>Manager: manager@bistro.com / password123</p>
-          <p>Waiter: waiter@bistro.com / password123</p>
-          <p>Cashier: cashier@bistro.com / password123</p>
-          <p>Butcher: butcher@bistro.com / password123</p>
-          <p>Kitchen: kitchen@bistro.com / password123</p>
         </div>
       </Card>
     </div>
