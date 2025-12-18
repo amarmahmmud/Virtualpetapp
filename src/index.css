@@ -2174,6 +2174,14 @@ html {
   font-size: var(--font-size);
 }
 
+/* Prevent Android pull-to-refresh and overscroll bounce in PWA */
+@supports (overscroll-behavior-y: none) {
+  html, body {
+    overscroll-behavior-y: none;
+    overscroll-behavior: none;
+  }
+}
+
 @property --tw-translate-x {
   syntax: "*";
   inherits: false;

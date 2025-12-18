@@ -83,6 +83,7 @@ export default function App() {
   const [tables, setTables] = useState<{ number: number; status: "available" | "occupied" }[]>([]);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<{ id: string; type: 'low_stock'; title: string; message: string; timestamp: Date }[]>([]);
+  const [authInitializing, setAuthInitializing] = useState(true);
 
   // Derive pending orders from orders with status "paid"
   const pendingOrders = orders
@@ -136,6 +137,7 @@ export default function App() {
         setUserStatus(null);
         setCurrentUser(null);
       }
+      setAuthInitializing(false);
     });
 
     return () => unsubscribe();
@@ -901,6 +903,17 @@ export default function App() {
   const handleDismissNotification = (id: string) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
+
+  if (authInitializing) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <img src="/icons/icon-192.png" alt="VRM" width="72" height="72" />
+          <div className="animate-spin h-6 w-6 rounded-full border-2 border-gray-300 border-t-blue-600" />
+        </div>
+      </div>
+    );
+  }
 
   if (userStatus === 'pending') {
     return (
