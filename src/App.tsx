@@ -31,7 +31,7 @@ const requestNotificationPermission = async () => {
 
 const showNotification = (title: string, body: string) => {
   if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification(title, { body, icon: '/favicon.ico' });
+    new Notification(title, { body, icon: '/icons/icon-192.png' });
   }
 };
 
@@ -325,7 +325,8 @@ export default function App() {
   useEffect(() => {
     if (tables.length > 0) {
       const activeOrderTableNumbers = orders
-        .filter(order => order.status !== "confirmed")
+        // Consider only truly active orders. Free tables for paid/cancelled/confirmed.
+        .filter(order => ["pending", "in-kitchen", "at-bar", "ready", "picked"].includes(order.status))
         .map(order => order.tableNumber);
 
       const updatedTables = tables.map(table => {
@@ -619,6 +620,13 @@ export default function App() {
           orderId,
           tableNumber: order.tableNumber,
         });
+
+        // Free up the table immediately on payment
+        const updatedTables = tables.map(table =>
+          table.number === order.tableNumber ? { ...table, status: "available" as const } : table
+        );
+        setTables(updatedTables);
+        updateTableStatusInFirestore(order.tableNumber, "available");
       }
     } catch (error) {
       console.error('Error marking order as paid:', error);
@@ -680,6 +688,13 @@ export default function App() {
         orderId,
         tableNumber: order.tableNumber,
       });
+
+      // Free up the table immediately on mobile payment submission
+      const updatedTables = tables.map(table =>
+        table.number === order.tableNumber ? { ...table, status: "available" as const } : table
+      );
+      setTables(updatedTables);
+      updateTableStatusInFirestore(order.tableNumber, "available");
 
       alert('Payment proof submitted successfully! Waiting for cashier approval.');
     } catch (error: any) {
