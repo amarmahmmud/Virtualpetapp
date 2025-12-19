@@ -2,7 +2,7 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { HistoryListItem } from "../HistoryListItem";
-import { History, ChefHat, Clock, LogOut } from "lucide-react";
+import { History, ChefHat, Clock, LogOut, RefreshCcw } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
 import { updateDoc, doc } from "firebase/firestore";
@@ -249,6 +249,14 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
             ))}
           </div>
         </div>
+        <button
+          onClick={() => window.location.reload()}
+          aria-label="Refresh"
+          className="fixed bottom-20 right-4 bg-red-600 text-white rounded-full p-3 shadow-lg"
+          title="Refresh"
+        >
+          <RefreshCcw className="w-5 h-5" />
+        </button>
       </div>
     </div>
   );

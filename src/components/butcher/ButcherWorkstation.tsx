@@ -3,7 +3,7 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { HistoryListItem } from "../HistoryListItem";
-import { History, ChefHat, LogOut, Plus, Minus } from "lucide-react";
+import { History, ChefHat, LogOut, Plus, Minus, RefreshCcw } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
@@ -445,6 +445,15 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
             )}
           </Accordion>
         </div>
+
+        <button
+          onClick={() => window.location.reload()}
+          aria-label="Refresh"
+          className="fixed bottom-20 right-4 bg-orange-600 text-white rounded-full p-3 shadow-lg"
+          title="Refresh"
+        >
+          <RefreshCcw className="w-5 h-5" />
+        </button>
 
       </div>
     </div>
