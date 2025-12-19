@@ -26,31 +26,40 @@ interface Notification {
 interface ManagerDashboardProps {
   notifications: Notification[];
   onDismissNotification: (id: string) => void;
+  isOnline: boolean;
+  ordersData?: Order[];
 }
 
-export function ManagerDashboard({ notifications, onDismissNotification }: ManagerDashboardProps) {
+export function ManagerDashboard({ notifications, onDismissNotification, isOnline, ordersData }: ManagerDashboardProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch orders from Firebase
+  // Use orders from props when provided; otherwise subscribe to Firestore
   useEffect(() => {
+    // If parent passes ordersData, prefer it and skip subscription
+    if (ordersData && Array.isArray(ordersData)) {
+      setOrders(ordersData as Order[]);
+      setLoading(false);
+      return;
+    }
+
     const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-      const ordersData: Order[] = [];
+      const _orders: Order[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        ordersData.push({
+        _orders.push({
           id: doc.id,
           ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
+          createdAt: (data as any).createdAt?.toDate?.() || new Date(),
         } as Order);
       });
-      setOrders(ordersData);
+      setOrders(_orders);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [ordersData]);
 
   // Calculate today's metrics
   const today = new Date();
@@ -104,6 +113,19 @@ export function ManagerDashboard({ notifications, onDismissNotification }: Manag
     .sort(([,a], [,b]) => b - a)
     .slice(0, 3)
     .map(([name, count]) => ({ name, orders: count }));
+
+  // If fully offline and we have no data at all, show an offline message
+  if (!isOnline && orders.length === 0) {
+    return (
+      <div className="p-4 pb-20">
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <p className="text-gray-600">You are offline. Dashboard data will be available when you reconnect.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

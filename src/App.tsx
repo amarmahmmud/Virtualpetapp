@@ -84,6 +84,35 @@ export default function App() {
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<{ id: string; type: 'low_stock'; title: string; message: string; timestamp: Date }[]>([]);
   const [authInitializing, setAuthInitializing] = useState(true);
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  // React to connectivity changes and notify the user
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      try {
+        setInfoMessage('Back online. Syncing...');
+        window.clearTimeout((handleOnline as any)._t);
+        (handleOnline as any)._t = window.setTimeout(() => setInfoMessage(null), 2500);
+      } catch {}
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      try {
+        setInfoMessage('You are offline. Some features are unavailable.');
+        window.clearTimeout((handleOffline as any)._t);
+        (handleOffline as any)._t = window.setTimeout(() => setInfoMessage(null), 3000);
+      } catch {}
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Derive pending orders from orders with status "paid"
   const pendingOrders = orders
@@ -190,6 +219,32 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+
+
+  // In-app info toast (auto-hide) and offline banner
+  const inform = (msg: string) => {
+    setInfoMessage(msg);
+    // ensure last timer cleared to avoid overlapping timeouts
+    window.clearTimeout((inform as any)._t);
+    (inform as any)._t = window.setTimeout(() => setInfoMessage(null), 3000);
+  };
+
+  const OfflineBanner = () => (
+    !isOnline ? (
+      <div className="fixed top-0 inset-x-0 z-50 bg-orange-100 text-orange-800 text-sm py-2 text-center border-b border-orange-200">
+        Offline mode: changes will sync when you reconnect
+      </div>
+    ) : null
+  );
+
+  const InfoToast = () => (
+    infoMessage ? (
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white text-sm px-4 py-2 rounded-md shadow-md">
+        {infoMessage}
+      </div>
+    ) : null
+  );
 
   // Fetch orders from Firebase
   useEffect(() => {
@@ -561,6 +616,7 @@ export default function App() {
 
   const handleSubmitOrder = async (tableNumber: number, items: CartItem[]) => {
     try {
+      if (!isOnline) inform("Offline: New order will sync when you're back online");
       // Check inventory availability
       const { unavailableItems, inventoryDeductions } = await checkInventoryAvailability(items);
 
@@ -655,6 +711,7 @@ export default function App() {
 
   const handleMarkAsPaid = async (orderId: string, paymentMethod: "cash" | "mobile") => {
     try {
+      if (!isOnline) inform("Offline: Mark as paid will sync when you're back online");
       const order = orders.find((o) => o.id === orderId);
 
       await updateDoc(doc(db, 'orders', orderId), {
@@ -685,6 +742,7 @@ export default function App() {
 
   const handleMobileBankingPayment = async (orderId: string, paymentImage: File) => {
     try {
+      if (!isOnline) inform("Offline: Payment submission will sync when you're back online");
       const order = orders.find((o) => o.id === orderId);
       if (!order) {
         alert('Order not found.');
@@ -767,6 +825,7 @@ export default function App() {
 
   const handleConfirmPayment = async (orderId: string) => {
     try {
+      if (!isOnline) inform("Offline: Payment confirmation will sync when you're back online");
       await updateDoc(doc(db, 'orders', orderId), {
         status: "confirmed",
       });
@@ -803,6 +862,7 @@ export default function App() {
 
   const handleApproveMobilePayment = async (orderId: string) => {
     try {
+      if (!isOnline) inform("Offline: Approval will sync when you're back online");
       await updateDoc(doc(db, 'orders', orderId), {
         paymentStatus: "approved",
         status: "confirmed",
@@ -839,6 +899,7 @@ export default function App() {
 
   const handleRejectMobilePayment = async (orderId: string) => {
     try {
+      if (!isOnline) inform("Offline: Rejection will sync when you're back online");
       await updateDoc(doc(db, 'orders', orderId), {
         paymentStatus: "rejected",
         status: "ready", // Send back to waiter
@@ -861,6 +922,7 @@ export default function App() {
 
   const handlePickUp = async (orderId: string) => {
     try {
+      if (!isOnline) inform("Offline: Pickup will sync when you're back online");
       await updateDoc(doc(db, 'orders', orderId), {
         status: "picked",
       });
@@ -882,6 +944,7 @@ export default function App() {
 
   const handleCancelOrder = async (orderId: string) => {
     try {
+      if (!isOnline) inform("Offline: Cancel order will sync when you're back online");
       const order = orders.find(o => o.id === orderId);
       if (!order) return;
 
@@ -919,6 +982,7 @@ export default function App() {
   };
 
   const handleAddTable = async () => {
+    if (!isOnline) inform("Offline: Add table will sync when you're back online");
     const tableNumber = prompt("Enter table number:");
     if (tableNumber && !isNaN(Number(tableNumber))) {
       const num = Number(tableNumber);
@@ -951,6 +1015,7 @@ export default function App() {
   const handleDismissNotification = (id: string) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
+
 
   // Floating refresh button to manually refresh without pull-to-refresh
   const RefreshFab = () => (
@@ -1000,8 +1065,10 @@ export default function App() {
   if (currentRole === "manager") {
     return (
       <div className="min-h-screen bg-gray-50">
+        <OfflineBanner />
         <RefreshFab />
-        {currentScreen === "default" && <ManagerDashboard notifications={notifications} onDismissNotification={handleDismissNotification} />}
+        <InfoToast />
+        {currentScreen === "default" && <ManagerDashboard notifications={notifications} onDismissNotification={handleDismissNotification} isOnline={isOnline} ordersData={orders} />}
         {currentScreen === "menu" && <MenuManagement />}
         {currentScreen === "inventory" && <InventoryManagement />}
         {currentScreen === "staff" && <StaffManagement />}
@@ -1073,7 +1140,9 @@ export default function App() {
 
     return (
       <div className="min-h-screen bg-gray-50">
+        <OfflineBanner />
         <RefreshFab />
+        <InfoToast />
         {currentScreen === "default" && (
           <Tables tables={tables} onSelectTable={setSelectedTable} onAddTable={handleAddTable} />
         )}
@@ -1135,7 +1204,9 @@ export default function App() {
   if (currentRole === "cashier") {
     return (
       <div className="min-h-screen bg-gray-50">
+        <OfflineBanner />
         <RefreshFab />
+        <InfoToast />
         {currentScreen === "default" && (
           <PendingConfirmation
             orders={orders}
@@ -1183,8 +1254,10 @@ export default function App() {
   if (currentRole === "butcher") {
     return (
       <>
+        <OfflineBanner />
         <ButcherWorkstation orders={orders} onLogout={handleLogout} />
         <RefreshFab />
+        <InfoToast />
       </>
     );
   }
@@ -1193,8 +1266,10 @@ export default function App() {
   if (currentRole === "kitchen") {
     return (
       <>
+        <OfflineBanner />
         <KitchenWorkstation orders={orders} onLogout={handleLogout} />
         <RefreshFab />
+        <InfoToast />
       </>
     );
   }
@@ -1203,8 +1278,10 @@ export default function App() {
   if (currentRole === "bar") {
     return (
       <>
+        <OfflineBanner />
         <BarWorkstation orders={orders} onLogout={handleLogout} />
         <RefreshFab />
+        <InfoToast />
       </>
     );
   }
