@@ -72,11 +72,23 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
   };
 
   const norm = (s: string | undefined) => (s ?? '').toString().toLowerCase();
-  const saleStatuses = new Set(['confirmed', 'paid', 'picked']);
+  // Only treat confirmed/paid as sales; exclude picked to avoid unintended counts
+  const saleStatuses = new Set(['confirmed', 'paid']);
+  const excludedStatuses = new Set(['cancelled', 'canceled']);
+
+  // Robust order total: prefer stored totalAmount if numeric; otherwise sum items (price * quantity)
+  const calcOrderTotal = (order: any): number => {
+    const itemsTotal = Array.isArray(order.items)
+      ? order.items.reduce((sum: number, item: any) =>
+          sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0)
+      : 0;
+    const docTotal = typeof order.totalAmount === 'number' ? order.totalAmount : NaN;
+    return !Number.isNaN(docTotal) && docTotal > 0 ? docTotal : itemsTotal;
+  };
 
   // Today's partitions
   const todaysAll = orders.filter(order => isSameDay(new Date(order.createdAt), today));
-  const todaysSale = todaysAll.filter(order => saleStatuses.has(norm(order.status)));
+  const todaysSale = todaysAll.filter(order => saleStatuses.has(norm(order.status)) && !excludedStatuses.has(norm(order.status)));
 
   // Last 7 days partitions (inclusive of today)
   const sevenDaysAgo = new Date();
@@ -89,29 +101,28 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     const d = new Date(order.createdAt);
     return d >= sevenDaysAgo && d <= endOfToday;
   });
-  const last7Sale = last7All.filter(order => saleStatuses.has(norm(order.status)));
+  const last7Sale = last7All.filter(order => saleStatuses.has(norm(order.status)) && !excludedStatuses.has(norm(order.status)));
 
-  const hasTodayData = todaysAll.length > 0;
-  const baseAll = hasTodayData ? todaysAll : last7All;
-  const baseSource = hasTodayData
-    ? (todaysSale.length > 0 ? todaysSale : todaysAll)
-    : (last7Sale.length > 0 ? last7Sale : last7All);
+  // If there are orders today but none are sales (e.g., cancelled/in-progress only),
+  // today's KPIs should be zero rather than counting non-sale orders.
+  const hasTodayOrders = todaysAll.length > 0;
 
-  const baseSales = baseSource.reduce((sum, order) =>
-    sum + order.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
-  );
+  // Use only sale orders for KPIs; if no sales today, fall back to last 7 days' sales.
+  const baseSource = hasTodayOrders ? todaysSale : last7Sale;
 
-  // Total orders: count of orders in the chosen scope
-  const totalOrders = baseAll.length;
+  const baseSales = baseSource.reduce((sum, order) => sum + calcOrderTotal(order), 0);
+
+  // Total orders: number of sale orders in the chosen scope (excludes cancelled/in-progress)
+  const totalOrders = baseSource.length;
 
   // Average order value from the same source used to compute sales
   const avgOrderValue = baseSource.length > 0 ? baseSales / baseSource.length : 0;
 
   // Dynamic labels based on scope
-  const scopeLabel = hasTodayData ? "Today's" : "Last 7 Days";
-  const ordersLabel = hasTodayData ? "Total Orders" : "Orders (7 days)";
-  const avgLabel = hasTodayData ? "Avg. Order Value" : "Avg. Order Value (7 days)";
-  const popularTitle = hasTodayData ? "Popular Items Today" : "Popular Items (7 days)";
+  const scopeLabel = hasTodayOrders ? "Today's" : "Last 7 Days";
+  const ordersLabel = hasTodayOrders ? "Total Orders" : "Orders (7 days)";
+  const avgLabel = hasTodayOrders ? "Avg. Order Value" : "Avg. Order Value (7 days)";
+  const popularTitle = hasTodayOrders ? "Popular Items Today" : "Popular Items (7 days)";
 
   // Calculate weekly sales data (prefer confirmed/paid/picked; fallback to any orders per day)
   const weeklySales = [];
@@ -121,12 +132,11 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     date.setHours(0, 0, 0, 0);
 
     const dayAll = orders.filter(order => isSameDay(new Date(order.createdAt), date));
-    const daySale = dayAll.filter(order => saleStatuses.has(norm(order.status)));
-    const daySource = daySale.length > 0 ? daySale : dayAll;
+    const daySale = dayAll.filter(order => saleStatuses.has(norm(order.status)) && !excludedStatuses.has(norm(order.status)));
+    // Only count sale statuses per day; cancelled/in-progress should not contribute to sales
+    const daySource = daySale;
 
-    const daySales = daySource.reduce((sum, order) =>
-      sum + order.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
-    );
+    const daySales = daySource.reduce((sum, order) => sum + calcOrderTotal(order), 0);
 
     weeklySales.push({
       day: date.toLocaleDateString('en-US', { weekday: 'short' }),
