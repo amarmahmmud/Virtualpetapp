@@ -61,7 +61,7 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     return () => unsubscribe();
   }, [ordersData]);
 
-  // Calculate today's metrics (prefer confirmed; fallback to paid)
+  // Calculate today's metrics (normalize statuses; prefer confirmed/paid/picked; fallback to any orders)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -71,31 +71,37 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     return a.getTime() === b.getTime();
   };
 
-  const todaysConfirmed = orders.filter(order => isSameDay(new Date(order.createdAt), today) && order.status === 'confirmed');
-  const todaysPaid = orders.filter(order => isSameDay(new Date(order.createdAt), today) && order.status === 'paid');
+  const norm = (s: string | undefined) => (s ?? '').toString().toLowerCase();
+  const saleStatuses = new Set(['confirmed', 'paid', 'picked']);
 
-  // Use confirmed orders if any exist today; otherwise use paid orders
-  const todaysOrders = todaysConfirmed.length > 0 ? todaysConfirmed : todaysPaid;
+  const todaysAll = orders.filter(order => isSameDay(new Date(order.createdAt), today));
+  const todaysSale = todaysAll.filter(order => saleStatuses.has(norm(order.status)));
 
-  const todaysSales = todaysOrders.reduce((sum, order) =>
+  // Use sale orders when available; otherwise fall back to any orders today
+  const todaysSource = todaysSale.length > 0 ? todaysSale : todaysAll;
+
+  const todaysSales = todaysSource.reduce((sum, order) =>
     sum + order.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
   );
 
-  const totalOrders = todaysOrders.length;
-  const avgOrderValue = totalOrders > 0 ? todaysSales / totalOrders : 0;
+  // For total orders, show number of orders today regardless of status
+  const totalOrders = todaysAll.length;
 
-  // Calculate weekly sales data (prefer confirmed; fallback to paid for each day)
+  // Average order value from the same source used to compute sales
+  const avgOrderValue = todaysSource.length > 0 ? todaysSales / todaysSource.length : 0;
+
+  // Calculate weekly sales data (prefer confirmed/paid/picked; fallback to any orders per day)
   const weeklySales = [];
   for (let i = 6; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     date.setHours(0, 0, 0, 0);
 
-    const dayConfirmed = orders.filter(order => isSameDay(new Date(order.createdAt), date) && order.status === 'confirmed');
-    const dayPaid = orders.filter(order => isSameDay(new Date(order.createdAt), date) && order.status === 'paid');
-    const dayOrders = dayConfirmed.length > 0 ? dayConfirmed : dayPaid;
+    const dayAll = orders.filter(order => isSameDay(new Date(order.createdAt), date));
+    const daySale = dayAll.filter(order => saleStatuses.has(norm(order.status)));
+    const daySource = daySale.length > 0 ? daySale : dayAll;
 
-    const daySales = dayOrders.reduce((sum, order) =>
+    const daySales = daySource.reduce((sum, order) =>
       sum + order.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
     );
 
@@ -105,9 +111,9 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     });
   }
 
-  // Calculate popular items today
+  // Calculate popular items today (use todaysSource for consistency)
   const itemCounts: { [key: string]: number } = {};
-  todaysOrders.forEach(order => {
+  todaysSource.forEach(order => {
     order.items.forEach(item => {
       itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
     });
