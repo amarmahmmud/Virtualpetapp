@@ -1136,7 +1136,13 @@ export default function App() {
           />
         )}
         {currentScreen === "my-orders" && (
-          <MyOrders orders={orders} onMarkAsPaid={handleMarkAsPaid} onPickUp={handlePickUp} onCancelOrder={handleCancelOrder} />
+          <MyOrders
+            orders={orders}
+            onMarkAsPaid={handleMarkAsPaid}
+            onPickUp={handlePickUp}
+            onCancelOrder={handleCancelOrder}
+            onMobileBankingPayment={handleMobileBankingPayment}
+          />
         )}
         {currentScreen === "history" && <WaiterHistory />}
 

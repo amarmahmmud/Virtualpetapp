@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { OrderCard } from "../OrderCard";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -20,11 +20,13 @@ interface MyOrdersProps {
   onMarkAsPaid: (orderId: string, paymentMethod: "cash" | "mobile") => void;
   onPickUp: (orderId: string) => void;
   onCancelOrder?: (orderId: string) => void;
+  onMobileBankingPayment: (orderId: string, paymentImage: File) => Promise<void> | void;
 }
 
-export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder }: MyOrdersProps) {
+export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobileBankingPayment }: MyOrdersProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const getTotalPrice = (items: { price: number; quantity: number }[]) => {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -164,6 +166,29 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder }: MyOr
           <DialogHeader>
             <DialogTitle>Select Payment Method</DialogTitle>
           </DialogHeader>
+
+          {/* Hidden file input for mobile banking proof */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (file && selectedOrder) {
+                try {
+                  await onMobileBankingPayment(selectedOrder.id, file);
+                } finally {
+                  // Close the payment options + detail dialog for snappy UX
+                  setShowPaymentOptions(false);
+                  setSelectedOrder(null);
+                  // reset input value to allow re-uploading same file next time
+                  e.currentTarget.value = "";
+                }
+              }
+            }}
+          />
+
           <div className="space-y-3">
             <Button
               className="w-full bg-green-600 hover:bg-green-700"
@@ -173,9 +198,12 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder }: MyOr
             </Button>
             <Button
               className="w-full bg-blue-600 hover:bg-blue-700"
-              onClick={() => handleMarkAsPaid("mobile")}
+              onClick={() => {
+                // Trigger image picker for mobile banking proof
+                fileInputRef.current?.click();
+              }}
             >
-              Mobile Banking
+              Mobile Banking (Upload Proof)
             </Button>
           </div>
         </DialogContent>
