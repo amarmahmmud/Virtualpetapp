@@ -40,6 +40,25 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     if (ordersData && Array.isArray(ordersData)) {
       setOrders(ordersData as Order[]);
       setLoading(false);
+
+      // Debug summary to console to verify status/timestamps flowing in
+      try {
+        const counts: Record<string, number> = {};
+        (ordersData as Order[]).forEach(o => {
+          const s = norm((o as any).status);
+          counts[s] = (counts[s] ?? 0) + 1;
+        });
+        const sample = (ordersData as Order[])
+          .slice(0, 5)
+          .map(o => ({ id: o.id, status: (o as any).status, createdAt: (o as any).createdAt }));
+        // eslint-disable-next-line no-console
+        console.log('[ManagerDashboard] Orders summary:', {
+          total: (ordersData as Order[]).length,
+          countsByStatus: counts,
+          sample,
+        });
+      } catch {}
+
       return;
     }
 
@@ -71,7 +90,7 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     return a.getTime() === b.getTime();
   };
 
-  const norm = (s: string | undefined) => (s ?? '').toString().toLowerCase();
+  const norm = (s: string | undefined) => (s ?? '').toString().trim().toLowerCase();
   // Only treat confirmed/paid as sales; exclude picked to avoid unintended counts
   const saleStatuses = new Set(['confirmed', 'paid']);
   const excludedStatuses = new Set(['cancelled', 'canceled']);
