@@ -324,64 +324,46 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Load tables from Firestore
+  // Realtime tables subscription (fast waiter updates)
   useEffect(() => {
-    const loadTables = async () => {
-      try {
-        const tablesSnapshot = await getDocs(collection(db, 'tables'));
-        const tablesData: { number: number; status: "available" | "occupied" }[] = [];
+    const defaultTables = [
+      { number: 1, status: "available" as const },
+      { number: 2, status: "available" as const },
+      { number: 3, status: "available" as const },
+      { number: 4, status: "available" as const },
+      { number: 5, status: "available" as const },
+      { number: 6, status: "available" as const },
+      { number: 7, status: "available" as const },
+      { number: 8, status: "available" as const },
+      { number: 9, status: "available" as const },
+      { number: 10, status: "available" as const },
+    ];
 
-        tablesSnapshot.forEach((doc) => {
-          const data = doc.data();
-          tablesData.push({
-            number: data.number,
-            status: data.status || "available"
-          });
+    try {
+      const tablesQuery = query(collection(db, 'tables'));
+      const unsubscribe = onSnapshot(tablesQuery, (snapshot) => {
+        const tablesData: { number: number; status: "available" | "occupied" }[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data() as any;
+          if (typeof data.number === 'number') {
+            tablesData.push({
+              number: data.number,
+              status: (data.status || "available") as "available" | "occupied"
+            });
+          }
         });
 
-        // If no tables in Firestore, create default tables
-        if (tablesData.length === 0) {
-          const defaultTables = [
-            { number: 1, status: "available" as const },
-            { number: 2, status: "available" as const },
-            { number: 3, status: "available" as const },
-            { number: 4, status: "available" as const },
-            { number: 5, status: "available" as const },
-            { number: 6, status: "available" as const },
-            { number: 7, status: "available" as const },
-            { number: 8, status: "available" as const },
-            { number: 9, status: "available" as const },
-            { number: 10, status: "available" as const },
-          ];
+        setTables(tablesData.length > 0 ? tablesData : defaultTables);
+      }, (error) => {
+        console.error('Realtime tables listener error:', error);
+        setTables(defaultTables);
+      });
 
-          // Save default tables to Firestore
-          for (const table of defaultTables) {
-            await addDoc(collection(db, 'tables'), table);
-          }
-
-          setTables(defaultTables);
-        } else {
-          setTables(tablesData);
-        }
-      } catch (error) {
-        console.error('Error loading tables:', error);
-        // Fallback to default tables
-        setTables([
-          { number: 1, status: "available" },
-          { number: 2, status: "available" },
-          { number: 3, status: "available" },
-          { number: 4, status: "available" },
-          { number: 5, status: "available" },
-          { number: 6, status: "available" },
-          { number: 7, status: "available" },
-          { number: 8, status: "available" },
-          { number: 9, status: "available" },
-          { number: 10, status: "available" },
-        ]);
-      }
-    };
-
-    loadTables();
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Failed to start tables realtime listener:', error);
+      setTables(defaultTables);
+    }
   }, []);
 
   // Fetch inventory and check for low stock alerts

@@ -252,7 +252,7 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
         <button
           onClick={() => window.location.reload()}
           aria-label="Refresh"
-          className="fixed bottom-20 right-4 bg-red-600 text-white rounded-full p-3 shadow-lg"
+          className="fixed bottom-20 right-4 bg-blue-600 text-white rounded-full p-3 shadow-lg"
           title="Refresh"
         >
           <RefreshCcw className="w-5 h-5" />
