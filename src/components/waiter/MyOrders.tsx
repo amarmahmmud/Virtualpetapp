@@ -67,7 +67,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder }: MyOr
         </div>
       )}
 
-      <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+      <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open: boolean) => { if (!open) setSelectedOrder(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Order #{selectedOrder?.orderNumber || selectedOrder?.id}</DialogTitle>
@@ -112,7 +112,12 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder }: MyOr
                 {selectedOrder.status !== "paid" && selectedOrder.status !== "confirmed" && onCancelOrder && (
                   <Button
                     className="w-full bg-red-600 hover:bg-red-700"
-                    onClick={() => onCancelOrder(selectedOrder.id)}
+                    onClick={() => {
+                      // Cancel and immediately close dialog for snappy UX
+                      onCancelOrder(selectedOrder.id);
+                      setShowPaymentOptions(false);
+                      setSelectedOrder(null);
+                    }}
                   >
                     Cancel Order
                   </Button>
@@ -121,6 +126,9 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder }: MyOr
                   className="w-full bg-blue-600 hover:bg-blue-700"
                   onClick={() => {
                     alert(`Bill generated for Order #${selectedOrder.orderNumber || selectedOrder.id}\nTotal: $${getTotalPrice(selectedOrder.items).toFixed(2)}`);
+                    // Close the dialog after bill generation
+                    setShowPaymentOptions(false);
+                    setSelectedOrder(null);
                   }}
                 >
                   Generate Final Bill
@@ -128,7 +136,11 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder }: MyOr
                 {selectedOrder.status === "ready" && (
                   <Button
                     className="w-full bg-purple-600 hover:bg-purple-700"
-                    onClick={() => onPickUp(selectedOrder.id)}
+                    onClick={() => {
+                      onPickUp(selectedOrder.id);
+                      // Close dialog after pickup to return to list fast
+                      setSelectedOrder(null);
+                    }}
                   >
                     Pick Up
                   </Button>
