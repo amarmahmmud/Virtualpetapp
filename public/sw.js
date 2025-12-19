@@ -31,9 +31,19 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
+  let url;
+  try {
+    url = new URL(event.request.url);
+  } catch (e) {
+    // Do not intercept non-HTTP(S) schemes (e.g., data:, chrome-extension:)
+    return;
+  }
 
-  // SPA navigations
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
+  // SPA navigations: network-first with offline fallback
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(OFFLINE_FALLBACK_PAGE))
@@ -41,7 +51,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin assets
+  // Bypass SW for Firebase/Google endpoints to avoid CORS and streaming issues (Firestore listen/storage)
+  const hostname = url.hostname;
+  const isFirebase = hostname.endsWith('googleapis.com')
+                  || hostname.endsWith('gstatic.com')
+                  || hostname.endsWith('firebaseapp.com')
+                  || hostname.endsWith('firebasestorage.googleapis.com');
+  if (isFirebase) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Same-origin assets: cache-first with background update
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
@@ -56,7 +77,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cross-origin requests
+  // Cross-origin (non-Firebase) requests: network-first, fallback to cache
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );

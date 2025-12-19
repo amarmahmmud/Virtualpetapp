@@ -8,7 +8,8 @@ const firebaseConfig = {
   apiKey: "AIzaSyAlxN2fpjmc-tMRFLxW4H_jtLqS7tynEQw",
   authDomain: "virtual-restaurant-app.firebaseapp.com",
   projectId: "virtual-restaurant-app",
-  storageBucket: "virtual-restaurant-app.firebasestorage.app",
+  // Use the default bucket domain to avoid CORS/404 issues
+  storageBucket: "virtual-restaurant-app.appspot.com",
   messagingSenderId: "764282794302",
   appId: "1:764282794302:web:0f3114ce444d64e3833c6f"
 };
