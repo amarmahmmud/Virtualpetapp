@@ -15,10 +15,10 @@ import { CashierHistory } from "./components/cashier/CashierHistory";
 import { ButcherWorkstation } from "./components/butcher/ButcherWorkstation";
 import { KitchenWorkstation } from "./components/kitchen/KitchenWorkstation";
 import { BarWorkstation } from "./components/bar/BarWorkstation";
-import { LayoutDashboard, UtensilsCrossed, Package, Users, History, Table2, ShoppingBag, DollarSign, LogOut } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, Package, Users, History, Table2, ShoppingBag, DollarSign, LogOut, RefreshCcw } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db, storage } from "./firebase";
-import { doc, getDoc, collection, addDoc, getDocs, updateDoc, onSnapshot, query, orderBy, where } from "firebase/firestore";
+import { doc, getDoc, getDocFromCache, collection, addDoc, getDocs, updateDoc, onSnapshot, query, orderBy, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { logActivity } from "./utils/activityLogger";
 
@@ -904,6 +904,18 @@ export default function App() {
     setNotifications(notifications.filter(n => n.id !== id));
   };
 
+  // Floating refresh button to manually refresh without pull-to-refresh
+  const RefreshFab = () => (
+    <button
+      onClick={() => window.location.reload()}
+      aria-label="Refresh"
+      className="fixed bottom-20 right-4 bg-blue-600 text-white rounded-full p-3 shadow-lg"
+      title="Refresh"
+    >
+      <RefreshCcw className="w-5 h-5" />
+    </button>
+  );
+
   if (authInitializing) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -940,6 +952,7 @@ export default function App() {
   if (currentRole === "manager") {
     return (
       <div className="min-h-screen bg-gray-50">
+        <RefreshFab />
         {currentScreen === "default" && <ManagerDashboard notifications={notifications} onDismissNotification={handleDismissNotification} />}
         {currentScreen === "menu" && <MenuManagement />}
         {currentScreen === "inventory" && <InventoryManagement />}
@@ -1012,6 +1025,7 @@ export default function App() {
 
     return (
       <div className="min-h-screen bg-gray-50">
+        <RefreshFab />
         {currentScreen === "default" && (
           <Tables tables={tables} onSelectTable={setSelectedTable} onAddTable={handleAddTable} />
         )}
@@ -1073,6 +1087,7 @@ export default function App() {
   if (currentRole === "cashier") {
     return (
       <div className="min-h-screen bg-gray-50">
+        <RefreshFab />
         {currentScreen === "default" && (
           <PendingConfirmation
             orders={orders}
@@ -1118,17 +1133,32 @@ export default function App() {
 
   // Butcher View
   if (currentRole === "butcher") {
-    return <ButcherWorkstation orders={orders} onLogout={handleLogout} />;
+    return (
+      <>
+        <ButcherWorkstation orders={orders} onLogout={handleLogout} />
+        <RefreshFab />
+      </>
+    );
   }
 
   // Kitchen View
   if (currentRole === "kitchen") {
-    return <KitchenWorkstation orders={orders} onLogout={handleLogout} />;
+    return (
+      <>
+        <KitchenWorkstation orders={orders} onLogout={handleLogout} />
+        <RefreshFab />
+      </>
+    );
   }
 
   // Bar View
   if (currentRole === "bar") {
-    return <BarWorkstation orders={orders} onLogout={handleLogout} />;
+    return (
+      <>
+        <BarWorkstation orders={orders} onLogout={handleLogout} />
+        <RefreshFab />
+      </>
+    );
   }
 
   return null;

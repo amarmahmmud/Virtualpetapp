@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getMessaging, getToken, onMessage, isSupported, type MessagePayload } from 'firebase/messaging';
 
@@ -17,6 +17,16 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Ensure auth persists across reloads and works offline
+setPersistence(auth, browserLocalPersistence).catch((e) => {
+  console.warn('Auth persistence setup failed:', e);
+});
+
+// Enable offline persistence for Firestore (serve cached data, queue writes)
+enableIndexedDbPersistence(db).catch((e) => {
+  console.warn('IndexedDB persistence failed (already enabled/private mode?):', e);
+});
 
 /**
  * Request notification permission, register the Firebase Messaging SW,
