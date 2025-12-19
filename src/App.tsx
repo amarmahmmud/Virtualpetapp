@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { LoginScreen } from "./components/LoginScreen";
 import { ManagerDashboard } from "./components/manager/Dashboard";
 import { MenuManagement } from "./components/manager/MenuManagement";
@@ -86,6 +86,66 @@ export default function App() {
   const [authInitializing, setAuthInitializing] = useState(true);
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  // Back button (Android/PWA) navigation handling: maintain a history stack of in-app views
+  const isPoppingRef = useRef(false);
+
+  const buildHash = (role: Role, screen: string, table: number | null) => {
+    const r = role ?? 'anon';
+    const s = screen ?? 'default';
+    const t = table ?? '';
+    return `#r=${r}&s=${s}${t !== '' ? `&t=${t}` : ''}`;
+  };
+
+  // Seed base history state and handle browser/Android back button
+  useEffect(() => {
+    try {
+      const state = { role: currentRole, screen: currentScreen, table: selectedTable };
+      // Replace initial entry so back doesn't immediately exit
+      window.history.replaceState(state, "", buildHash(currentRole, currentScreen, selectedTable));
+    } catch {}
+
+    const onPop = (ev: PopStateEvent) => {
+      isPoppingRef.current = true;
+      const st: any = ev.state;
+      if (st && typeof st === "object") {
+        if (typeof st.screen === "string") setCurrentScreen(st.screen);
+        if (typeof st.table === "number" || st.table === null || typeof st.table === "undefined") {
+          setSelectedTable(st.table ?? null);
+        }
+      } else {
+        // Fallback parse from hash if state is missing
+        try {
+          const hash = window.location.hash || "";
+          const params = new URLSearchParams(hash.replace(/^#/, "").split("&").join("&"));
+          const s = params.get("s") || "default";
+          const t = params.get("t");
+          setCurrentScreen(s);
+          setSelectedTable(t ? Number(t) : null);
+        } catch {
+          setCurrentScreen("default");
+          setSelectedTable(null);
+        }
+      }
+      // Clear popping flag on next tick
+      setTimeout(() => {
+        isPoppingRef.current = false;
+      }, 0);
+    };
+
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Push navigation state when app view changes programmatically
+  useEffect(() => {
+    if (isPoppingRef.current) return;
+    try {
+      const state = { role: currentRole, screen: currentScreen, table: selectedTable };
+      window.history.pushState(state, "", buildHash(currentRole, currentScreen, selectedTable));
+    } catch {}
+  }, [currentRole, currentScreen, selectedTable]);
 
   // React to connectivity changes and notify the user
   useEffect(() => {
@@ -1113,7 +1173,7 @@ export default function App() {
       return (
         <NewOrder
           tableNumber={selectedTable}
-          onBack={() => setSelectedTable(null)}
+          onBack={() => window.history.back()}
           onSubmitOrder={handleSubmitOrder}
           onLogout={handleLogout}
         />
