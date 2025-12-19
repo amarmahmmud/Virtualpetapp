@@ -61,15 +61,21 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     return () => unsubscribe();
   }, [ordersData]);
 
-  // Calculate today's metrics
+  // Calculate today's metrics (prefer confirmed; fallback to paid)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const todaysOrders = orders.filter(order => {
-    const orderDate = new Date(order.createdAt);
-    orderDate.setHours(0, 0, 0, 0);
-    return orderDate.getTime() === today.getTime() && order.status === 'confirmed';
-  });
+  const isSameDay = (d1: Date, d2: Date) => {
+    const a = new Date(d1); a.setHours(0, 0, 0, 0);
+    const b = new Date(d2); b.setHours(0, 0, 0, 0);
+    return a.getTime() === b.getTime();
+  };
+
+  const todaysConfirmed = orders.filter(order => isSameDay(new Date(order.createdAt), today) && order.status === 'confirmed');
+  const todaysPaid = orders.filter(order => isSameDay(new Date(order.createdAt), today) && order.status === 'paid');
+
+  // Use confirmed orders if any exist today; otherwise use paid orders
+  const todaysOrders = todaysConfirmed.length > 0 ? todaysConfirmed : todaysPaid;
 
   const todaysSales = todaysOrders.reduce((sum, order) =>
     sum + order.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
@@ -78,18 +84,16 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
   const totalOrders = todaysOrders.length;
   const avgOrderValue = totalOrders > 0 ? todaysSales / totalOrders : 0;
 
-  // Calculate weekly sales data
+  // Calculate weekly sales data (prefer confirmed; fallback to paid for each day)
   const weeklySales = [];
   for (let i = 6; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     date.setHours(0, 0, 0, 0);
 
-    const dayOrders = orders.filter(order => {
-      const orderDate = new Date(order.createdAt);
-      orderDate.setHours(0, 0, 0, 0);
-      return orderDate.getTime() === date.getTime() && order.status === 'confirmed';
-    });
+    const dayConfirmed = orders.filter(order => isSameDay(new Date(order.createdAt), date) && order.status === 'confirmed');
+    const dayPaid = orders.filter(order => isSameDay(new Date(order.createdAt), date) && order.status === 'paid');
+    const dayOrders = dayConfirmed.length > 0 ? dayConfirmed : dayPaid;
 
     const daySales = dayOrders.reduce((sum, order) =>
       sum + order.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
