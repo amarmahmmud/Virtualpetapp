@@ -61,7 +61,7 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     return () => unsubscribe();
   }, [ordersData]);
 
-  // Calculate today's metrics (normalize statuses; prefer confirmed/paid/picked; fallback to any orders)
+  // Calculate metrics scope: prefer today's data; if none, fall back to last 7 days.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -74,21 +74,44 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
   const norm = (s: string | undefined) => (s ?? '').toString().toLowerCase();
   const saleStatuses = new Set(['confirmed', 'paid', 'picked']);
 
+  // Today's partitions
   const todaysAll = orders.filter(order => isSameDay(new Date(order.createdAt), today));
   const todaysSale = todaysAll.filter(order => saleStatuses.has(norm(order.status)));
 
-  // Use sale orders when available; otherwise fall back to any orders today
-  const todaysSource = todaysSale.length > 0 ? todaysSale : todaysAll;
+  // Last 7 days partitions (inclusive of today)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
 
-  const todaysSales = todaysSource.reduce((sum, order) =>
+  const last7All = orders.filter(order => {
+    const d = new Date(order.createdAt);
+    return d >= sevenDaysAgo && d <= endOfToday;
+  });
+  const last7Sale = last7All.filter(order => saleStatuses.has(norm(order.status)));
+
+  const hasTodayData = todaysAll.length > 0;
+  const baseAll = hasTodayData ? todaysAll : last7All;
+  const baseSource = hasTodayData
+    ? (todaysSale.length > 0 ? todaysSale : todaysAll)
+    : (last7Sale.length > 0 ? last7Sale : last7All);
+
+  const baseSales = baseSource.reduce((sum, order) =>
     sum + order.items.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0), 0
   );
 
-  // For total orders, show number of orders today regardless of status
-  const totalOrders = todaysAll.length;
+  // Total orders: count of orders in the chosen scope
+  const totalOrders = baseAll.length;
 
   // Average order value from the same source used to compute sales
-  const avgOrderValue = todaysSource.length > 0 ? todaysSales / todaysSource.length : 0;
+  const avgOrderValue = baseSource.length > 0 ? baseSales / baseSource.length : 0;
+
+  // Dynamic labels based on scope
+  const scopeLabel = hasTodayData ? "Today's" : "Last 7 Days";
+  const ordersLabel = hasTodayData ? "Total Orders" : "Orders (7 days)";
+  const avgLabel = hasTodayData ? "Avg. Order Value" : "Avg. Order Value (7 days)";
+  const popularTitle = hasTodayData ? "Popular Items Today" : "Popular Items (7 days)";
 
   // Calculate weekly sales data (prefer confirmed/paid/picked; fallback to any orders per day)
   const weeklySales = [];
@@ -111,9 +134,9 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
     });
   }
 
-  // Calculate popular items today (use todaysSource for consistency)
+  // Calculate popular items for the chosen scope (use baseSource for consistency)
   const itemCounts: { [key: string]: number } = {};
-  todaysSource.forEach(order => {
+  baseSource.forEach(order => {
     order.items.forEach(item => {
       itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
     });
@@ -199,8 +222,8 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600">Today's Sales</p>
-              <p className="mt-2">${todaysSales.toFixed(2)}</p>
+              <p className="text-gray-600">{scopeLabel} Sales</p>
+              <p className="mt-2">${baseSales.toFixed(2)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
               <DollarSign className="w-6 h-6 text-green-600" />
@@ -211,7 +234,7 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600">Total Orders</p>
+              <p className="text-gray-600">{ordersLabel}</p>
               <p className="mt-2">{totalOrders}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -223,7 +246,7 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600">Avg. Order Value</p>
+              <p className="text-gray-600">{avgLabel}</p>
               <p className="mt-2">${avgOrderValue.toFixed(2)}</p>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -247,7 +270,7 @@ export function ManagerDashboard({ notifications, onDismissNotification, isOnlin
       </Card>
 
       <Card className="p-4">
-        <h3 className="mb-4">Popular Items Today</h3>
+        <h3 className="mb-4">{popularTitle}</h3>
         <div className="space-y-3">
           {popularItems.length > 0 ? (
             popularItems.map((item, index) => (
