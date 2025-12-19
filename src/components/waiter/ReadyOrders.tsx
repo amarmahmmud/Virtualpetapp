@@ -27,6 +27,7 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
   const [showMobileBanking, setShowMobileBanking] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [submittingPayment, setSubmittingPayment] = useState(false);
 
   const getTotalPrice = (items: { price: number; quantity: number }[]) => {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -52,14 +53,23 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
     }
   };
 
-  const handleMobileBankingSubmit = () => {
+  const handleMobileBankingSubmit = async () => {
     if (selectedOrder && selectedImage) {
-      onMobileBankingPayment(selectedOrder.id, selectedImage);
-      setShowMobileBanking(false);
-      setShowPaymentOptions(false);
-      setSelectedOrder(null);
-      setSelectedImage(null);
-      setImagePreview(null);
+      try {
+        setSubmittingPayment(true);
+        await Promise.resolve(onMobileBankingPayment(selectedOrder.id, selectedImage));
+        // Close dialogs and reset selections after successful submit
+        setShowMobileBanking(false);
+        setShowPaymentOptions(false);
+        setSelectedOrder(null);
+        setSelectedImage(null);
+        setImagePreview(null);
+      } catch (err: any) {
+        console.error('Mobile banking submit failed:', err);
+        alert(err?.message ? `Failed to submit payment: ${err.message}` : 'Failed to submit payment. Please try again.');
+      } finally {
+        setSubmittingPayment(false);
+      }
     }
   };
 
@@ -105,7 +115,7 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
         </div>
       )}
 
-      <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+      <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open: boolean) => { if (!open) setSelectedOrder(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Order #{selectedOrder?.orderNumber || selectedOrder?.id}</DialogTitle>
@@ -159,7 +169,7 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showPaymentOptions} onOpenChange={setShowPaymentOptions}>
+      <Dialog open={showPaymentOptions} onOpenChange={(open: boolean) => setShowPaymentOptions(open)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Select Payment Method</DialogTitle>
@@ -184,7 +194,7 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showMobileBanking} onOpenChange={(open) => {
+      <Dialog open={showMobileBanking} onOpenChange={(open: boolean) => {
         if (!open) {
           setShowMobileBanking(false);
           setSelectedImage(null);
@@ -235,10 +245,11 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
                     Retake
                   </Button>
                   <Button
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60"
                     onClick={handleMobileBankingSubmit}
+                    disabled={submittingPayment}
                   >
-                    Submit Payment
+                    {submittingPayment ? 'Submitting...' : 'Submit Payment'}
                   </Button>
                 </div>
               </div>

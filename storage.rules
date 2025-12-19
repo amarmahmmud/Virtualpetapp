@@ -15,20 +15,24 @@ service firebase.storage {
     }
 
     // Allow all authenticated users to read files
+    // Dedicated rules for payment proofs (images uploaded by staff)
+    match /payment-proofs/{filePath=**} {
+      // Authenticated users can read proofs
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create/update image proofs up to 10MB
+      // Use request.resource.name/contentType/size per Storage rules semantics
+      allow create, update: if isAuthenticated()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      // Only managers can delete proofs
+      allow delete: if isAuthenticated() && getUserRole() == 'Manager';
+    }
+
+    // Default read access for other objects for authenticated users
     match /{allPaths=**} {
       allow read: if isAuthenticated();
-      // Allow authenticated users to upload payment proofs
-      allow create: if isAuthenticated() &&
-                       request.resource.size < 10 * 1024 * 1024 && // 10MB limit
-                       request.resource.contentType.matches('image/.*') &&
-                       request.path.startsWith('payment-proofs/');
-      // Allow updates for existing files (if needed)
-      allow update: if isAuthenticated() &&
-                       request.resource.size < 10 * 1024 * 1024 &&
-                       request.resource.contentType.matches('image/.*');
-      // Allow delete for managers only
-      allow delete: if isAuthenticated() &&
-                       getUserRole() == 'Manager';
     }
   }
 }

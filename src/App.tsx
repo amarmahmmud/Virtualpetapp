@@ -759,6 +759,7 @@ export default function App() {
       await updateDoc(doc(db, 'orders', orderId), {
         status: "paid",
         paymentMethod,
+        updatedAt: new Date(),
       });
 
       // Log activity
@@ -829,6 +830,7 @@ export default function App() {
         paymentImageName: uniqueFileName,
         paymentSubmittedAt: new Date(),
         paymentStatus: "pending_approval", // New field for cashier approval
+        updatedAt: new Date(),
       });
 
       // Log activity
