@@ -15,6 +15,7 @@ interface MenuItem {
   name: string;
   price: number;
   category: string;
+  imageUrl?: string;
 }
 
 interface CartItem extends MenuItem {
@@ -47,6 +48,7 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
           name: data.name,
           price: data.price,
           category: data.category,
+          imageUrl: data.imageUrl,
         });
       });
       setMenuItems(menuData);
@@ -185,10 +187,23 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
                   className="p-4 cursor-pointer hover:bg-gray-50"
                   onClick={() => addToCart(item)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p>{item.name}</p>
-                      <p className="text-gray-600 mt-1">${item.price.toFixed(2)}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="h-14 w-14 object-cover rounded border"
+                        />
+                      ) : (
+                        <div className="h-14 w-14 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                          No Image
+                        </div>
+                      )}
+                      <div>
+                        <p>{item.name}</p>
+                        <p className="text-gray-600 mt-1">${item.price.toFixed(2)}</p>
+                      </div>
                     </div>
                     <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
                       Add
@@ -216,10 +231,23 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
               <div className="mt-4 space-y-3 overflow-y-auto max-h-[calc(80vh-200px)]">
                 {cart.map((item) => (
                   <Card key={item.id} className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p>{item.name}</p>
-                        <p className="text-gray-600">${item.price.toFixed(2)}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="h-12 w-12 object-cover rounded border"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                            No Image
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <p>{item.name}</p>
+                          <p className="text-gray-600">${item.price.toFixed(2)}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Button

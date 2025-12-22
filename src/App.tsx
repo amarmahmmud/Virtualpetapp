@@ -656,6 +656,8 @@ export default function App() {
   };
 
   const handleSubmitOrder = async (tableNumber: number, items: CartItem[]) => {
+    let createdOrderId: string | null = null;
+    let createdOrderNumber: number | null = null;
     try {
       if (!isOnline) inform("Offline: New order will sync when you're back online");
       // Check inventory availability
@@ -681,18 +683,12 @@ export default function App() {
       const hasKitchenItems = orderItems.some(item => item.requiresButcher || (!item.requiresButcher && !item.requiresBar));
 
       let orderStatus: "in-kitchen" | "at-bar";
-      if (hasBarItems && !hasKitchenItems) {
-        // Order contains only bar items
-        orderStatus = "at-bar";
-      } else {
-        // Order contains kitchen items (butcher or regular food) or mixed
-        orderStatus = "in-kitchen";
-      }
+      orderStatus = (hasBarItems && !hasKitchenItems) ? "at-bar" : "in-kitchen";
 
       // Generate sequential daily order number (resets daily)
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Start of today in local timezone
-      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000); // Start of tomorrow
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
       const todayOrdersQuery = query(
         collection(db, 'orders'),
@@ -706,6 +702,7 @@ export default function App() {
         .filter(num => num > 0);
 
       const nextOrderNumber = orderNumbers.length > 0 ? Math.max(...orderNumbers) + 1 : 1;
+      createdOrderNumber = nextOrderNumber;
       console.log('Creating order with number:', nextOrderNumber, 'existing numbers:', orderNumbers);
 
       const waiterName = currentUser?.name || 'Unknown Waiter';
@@ -722,35 +719,43 @@ export default function App() {
       };
 
       const docRef = await addDoc(collection(db, 'orders'), orderData);
+      createdOrderId = docRef.id;
 
-      // Deduct inventory
-      await deductInventory(inventoryDeductions, docRef.id);
+      // Non-critical steps: run best-effort and don't fail the whole flow
+      try {
+        await deductInventory(inventoryDeductions, docRef.id);
+      } catch (e) {
+        console.warn('Inventory deduct failed (non-critical):', e);
+      }
 
-      // Log activity
-      await logActivity({
-        role: 'Waiter',
-        description: `Order #${nextOrderNumber} submitted for Table ${tableNumber} (${orderStatus === 'at-bar' ? 'Bar' : 'Kitchen'})`,
-        orderId: docRef.id,
-        tableNumber,
-      });
+      try {
+        await logActivity({
+          role: 'Waiter',
+          description: `Order #${nextOrderNumber} submitted for Table ${tableNumber} (${orderStatus === 'at-bar' ? 'Bar' : 'Kitchen'})`,
+          orderId: docRef.id,
+          tableNumber,
+        });
+      } catch (e) {
+        console.warn('Activity log failed (non-critical):', e);
+      }
 
       setSelectedTable(null);
       setCurrentScreen("my-orders");
       if (tableNumber > 0) {
-        if (tableNumber > 0) {
-          // Update table status
-          const updatedTables = tables.map(table =>
-            table.number === tableNumber ? { ...table, status: "occupied" as const } : table
-          );
-          setTables(updatedTables);
-  
-          // Update table status in Firestore
-          updateTableStatusInFirestore(tableNumber, "occupied");
-        }
+        const updatedTables = tables.map(table =>
+          table.number === tableNumber ? { ...table, status: "occupied" as const } : table
+        );
+        setTables(updatedTables);
+        updateTableStatusInFirestore(tableNumber, "occupied");
       }
     } catch (error) {
       console.error('Error submitting order:', error);
-      alert('Failed to submit order. Please try again.');
+      if (!createdOrderId) {
+        alert('Failed to submit order. Please try again.');
+      } else {
+        // Order was created; inform user about partial issues but do not block
+        inform('Order created. Some background steps will sync later.');
+      }
     }
   };
 

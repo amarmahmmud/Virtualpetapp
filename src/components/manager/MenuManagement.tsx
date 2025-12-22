@@ -20,6 +20,8 @@ interface MenuItem {
   name: string;
   price: number;
   category: string;
+  imageUrl?: string;
+  imagePublicId?: string;
   inventoryRequirements: InventoryRequirement[];
 }
 
@@ -36,6 +38,7 @@ export function MenuManagement() {
     price: "",
     category: "Food",
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [inventoryFormData, setInventoryFormData] = useState({
     inventoryId: "",
     quantity: "",
@@ -53,6 +56,8 @@ export function MenuManagement() {
           name: data.name,
           price: data.price,
           category: data.category,
+          imageUrl: data.imageUrl,
+          imagePublicId: data.imagePublicId,
           inventoryRequirements: data.inventoryRequirements || [],
         });
       });
@@ -85,25 +90,66 @@ export function MenuManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Upload image to Cloudinary if a new file is selected
+      let uploadedImageUrl: string | undefined;
+      let uploadedPublicId: string | undefined;
+  
+      if (imageFile) {
+        const cloudName = 'dwqgypyim';
+        const uploadPreset = 'ml_default';
+        const folder = 'menu-items';
+  
+        const form = new FormData();
+        form.append('file', imageFile);
+        form.append('upload_preset', uploadPreset);
+        form.append('folder', folder);
+  
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: 'POST',
+          body: form,
+        });
+  
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text().catch(() => '');
+          throw new Error(`Cloudinary upload failed (${uploadRes.status}): ${errText}`);
+        }
+  
+        const uploadJson: any = await uploadRes.json();
+        uploadedImageUrl = uploadJson.secure_url || uploadJson.url;
+        uploadedPublicId = uploadJson.public_id;
+      }
+  
       if (editingItem) {
-        await updateDoc(doc(db, 'menu', editingItem.id), {
+        const updatePayload: any = {
           name: formData.name,
           price: parseFloat(formData.price),
           category: formData.category,
-        });
+        };
+        if (uploadedImageUrl) {
+          updatePayload.imageUrl = uploadedImageUrl;
+          updatePayload.imagePublicId = uploadedPublicId || null;
+        }
+        await updateDoc(doc(db, 'menu', editingItem.id), updatePayload);
       } else {
-        await addDoc(collection(db, 'menu'), {
+        const payload: any = {
           name: formData.name,
           price: parseFloat(formData.price),
           category: formData.category,
           inventoryRequirements: [],
-        });
+        };
+        if (uploadedImageUrl) {
+          payload.imageUrl = uploadedImageUrl;
+          payload.imagePublicId = uploadedPublicId || null;
+        }
+        await addDoc(collection(db, 'menu'), payload);
       }
       setDialogOpen(false);
       setFormData({ name: "", price: "", category: "Food" });
       setEditingItem(null);
+      setImageFile(null);
     } catch (error) {
       console.error('Error saving menu item:', error);
+      alert((error as any)?.message || 'Failed to save menu item');
     }
   };
 
@@ -245,6 +291,25 @@ export function MenuManagement() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label htmlFor="image">Item Image (optional)</Label>
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                />
+                {editingItem?.imageUrl && !imageFile && (
+                  <div className="mt-2">
+                    <img src={editingItem.imageUrl} alt={editingItem.name} className="h-20 w-20 object-cover rounded border" />
+                  </div>
+                )}
+                {imageFile && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    Selected: {imageFile.name}
+                  </div>
+                )}
+              </div>
               <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
                 {editingItem ? "Update Item" : "Add Item"}
               </Button>
@@ -259,10 +324,19 @@ export function MenuManagement() {
           <div className="space-y-2">
             {items.map((item) => (
               <Card key={item.id} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p>{item.name}</p>
-                    <p className="text-gray-600 mt-1">${item.price.toFixed(2)}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="h-14 w-14 object-cover rounded border" />
+                    ) : (
+                      <div className="h-14 w-14 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                        No Image
+                      </div>
+                    )}
+                    <div>
+                      <p>{item.name}</p>
+                      <p className="text-gray-600 mt-1">${item.price.toFixed(2)}</p>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => openEditDialog(item)}>
