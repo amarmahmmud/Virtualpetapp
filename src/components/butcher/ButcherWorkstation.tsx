@@ -11,6 +11,7 @@ import { updateDoc, doc, collection, onSnapshot, query, orderBy } from "firebase
 import { db } from "../../firebase";
 import { logActivity } from "../../utils/activityLogger";
 import { auth } from "../../firebase";
+import { getLocale } from "../../i18n";
 
 interface Order {
   id: string;
@@ -39,6 +40,26 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
   const [butcherMenuItems, setButcherMenuItems] = useState<{id: string, name: string}[]>([]);
   const [selectedItemType, setSelectedItemType] = useState<string>("");
   const [prepQuantity, setPrepQuantity] = useState<number>(1);
+
+  const lc = getLocale();
+  const L = {
+    title: lc === 'am' ? 'የቡችር የስራ ጣቢያ' : 'Butcher Workstation',
+    historyTitle: lc === 'am' ? '📚 ታሪክ (የተጠናቀቁ ትዕዛዞች)' : '📚 History (Completed Orders)',
+    productionSummary: lc === 'am' ? 'የምርት ማጠቃለያ' : 'Production Summary',
+    todoTitle: lc === 'am' ? '📋 የሚደረጉ (በመጠባበቅ ላይ) ትዕዛዞች' : '📋 To-Do List (Pending Orders)',
+    completed: lc === 'am' ? 'ተጠናቋል' : 'Completed',
+    prepped: lc === 'am' ? 'ተዘጋጀ' : 'Prepped',
+    order: lc === 'am' ? 'ትዕዛዝ #' : 'Order #',
+    table: lc === 'am' ? 'ጠረጴዛ' : 'Table',
+    waiter: lc === 'am' ? 'አገልጋይ' : 'Waiter',
+    unknownWaiter: lc === 'am' ? 'ያልታወቀ አገልጋይ' : 'Unknown Waiter',
+    historyBatch: lc === 'am' ? 'የታሪክ ጥቅል' : 'History Batch',
+    fromOrders: (n: number) => lc === 'am' ? `ከ ${n} ትዕዛዞች` : `from ${n} Orders`,
+    noCompleted: lc === 'am' ? 'የተጠናቀቁ ቡችር ትዕዛዞች የሉም' : 'No completed butcher orders yet',
+    noPending: lc === 'am' ? 'የቡችር ዝግጅት የሚፈልጉ ትዕዛዞች የሉም' : 'No pending orders requiring butcher preparation',
+    waitingForButcher: lc === 'am' ? 'በቡችር ላይ በመጠባበቅ ላይ' : 'Waiting for Butcher',
+    waitingForBar: lc === 'am' ? 'በባር ላይ በመጠባበቅ ላይ' : 'Waiting for Bar',
+  };
 
   // Fetch butcher menu items
   useEffect(() => {
@@ -260,7 +281,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
           <div className="w-10 h-10 bg-orange-600 rounded-full flex items-center justify-center">
             <ChefHat className="w-6 h-6 text-white" />
           </div>
-          <h2>Butcher Workstation</h2>
+          <h2>{L.title}</h2>
         </div>
         <div className="flex gap-2">
           <Sheet>
@@ -271,7 +292,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
             </SheetTrigger>
             <SheetContent className="w-[90vw] max-w-4xl">
               <SheetHeader>
-                <SheetTitle>📚 History (Completed Orders)</SheetTitle>
+                <SheetTitle>{L.historyTitle}</SheetTitle>
               </SheetHeader>
               <div className="mt-4 space-y-4 max-h-[80vh] overflow-y-auto">
                 <Accordion type="single" collapsible>
@@ -284,7 +305,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
                     return (
                       <AccordionItem key={`sheet-history-batch-${batchIndex}`} value={`sheet-history-batch-${batchIndex}`}>
                         <AccordionTrigger>
-                          History Batch {batchIndex + 1} [{summaryText}] (from {batch.length} Orders)
+                          {L.historyBatch} {batchIndex + 1} [{summaryText}] ({L.fromOrders(batch.length)})
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="space-y-3">
@@ -292,9 +313,9 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
                               <Card key={order.id} className="p-3 opacity-75">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="font-medium">
-                                    Order #{order.orderNumber || order.id} - Table {order.tableNumber} - {order.waiterName}
+                                    {L.order}{order.orderNumber || order.id} - {L.table} {order.tableNumber} - {order.waiterName || L.unknownWaiter}
                                   </span>
-                                  <Badge className="bg-green-600">Completed</Badge>
+                                  <Badge className="bg-green-600">{L.completed}</Badge>
                                 </div>
                                 <div className="space-y-1">
                                   {order.items
@@ -314,7 +335,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
                   })}
                   {completedBatches.length === 0 && (
                     <div className="text-center text-gray-500 py-4">
-                      No completed butcher orders yet
+                      {L.noCompleted}
                     </div>
                   )}
                 </Accordion>
@@ -387,7 +408,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
 
         {/* To-Do List with Batching */}
         <div>
-          <h3 className="mb-3">📋 To-Do List (Pending Orders)</h3>
+          <h3 className="mb-3">{L.todoTitle}</h3>
           <Accordion type="single" collapsible>
             {pendingBatches.map((batch, batchIndex) => {
               const batchSummary = getBatchSummary(batch);
@@ -406,7 +427,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
                         <Card key={order.id} className="p-3">
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-medium">
-                              Order #{order.id} - Table {order.tableNumber} - {order.waiterName}
+                              {L.order}{order.orderNumber || order.id} - {L.table} {order.tableNumber} - {order.waiterName || L.unknownWaiter}
                             </span>
                           </div>
                           <div className="space-y-2">
@@ -426,7 +447,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
                                     className="bg-green-600 hover:bg-green-700"
                                     onClick={() => handlePrepped(order.id, item.name)}
                                   >
-                                    Prepped
+                                    {L.prepped}
                                   </Button>
                                 </div>
                               ))}
@@ -440,7 +461,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
             })}
             {pendingBatches.length === 0 && (
               <div className="text-center text-gray-500 py-4">
-                No pending orders requiring butcher preparation
+                {L.noPending}
               </div>
             )}
           </Accordion>

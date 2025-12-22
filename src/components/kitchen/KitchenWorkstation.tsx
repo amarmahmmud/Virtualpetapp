@@ -8,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "..
 import { updateDoc, doc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { logActivity } from "../../utils/activityLogger";
+import { getLocale } from "../../i18n";
 
 interface Order {
   id: string;
@@ -34,6 +35,22 @@ interface KitchenWorkstationProps {
 
 export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps) {
   const kitchenOrders = orders.filter(order => order.status === "in-kitchen");
+
+  const lc = getLocale();
+  const L = {
+    title: lc === 'am' ? 'የምግብ ቤት የስራ ጣቢያ' : 'Kitchen Workstation',
+    historyTitle: lc === 'am' ? '🍳 የምግብ ቤት ታሪክ (የተጠናቀቁ ትዕዛዞች)' : '🍳 Kitchen History (Completed Orders)',
+    productionSummary: lc === 'am' ? 'የምርት ማጠቃለያ' : 'Production Summary',
+    orderQueue: lc === 'am' ? 'የትዕዛዝ ረድፍ' : 'Order Queue',
+    order: lc === 'am' ? 'ትዕዛዝ #' : 'Order #',
+    table: lc === 'am' ? 'ጠረጴዛ' : 'Table',
+    waiter: lc === 'am' ? 'አገልጋይ' : 'Waiter',
+    unknownWaiter: lc === 'am' ? 'ያልታወቀ አገልጋይ' : 'Unknown Waiter',
+    waitingForButcher: lc === 'am' ? 'በቡችር ላይ በመጠባበቅ ላይ' : 'Waiting for Butcher',
+    waitingForBar: lc === 'am' ? 'በባር ላይ በመጠባበቅ ላይ' : 'Waiting for Bar',
+    ready: lc === 'am' ? 'ለመውሰድ ዝግ ነው' : 'Ready for Pickup',
+    noCompleted: lc === 'am' ? 'የተጠናቀቁ የምግብ ቤት ትዕዛዞች የሉም' : 'No completed kitchen orders yet',
+  };
 
   // Get completed orders (ready for pickup or later)
   const getCompletedOrders = () => {
@@ -127,7 +144,7 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
           <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
             <ChefHat className="w-6 h-6 text-white" />
           </div>
-          <h2>Kitchen Workstation</h2>
+          <h2>{L.title}</h2>
         </div>
         <div className="flex gap-2">
           <Sheet>
@@ -138,7 +155,7 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
             </SheetTrigger>
             <SheetContent className="w-[90vw] max-w-4xl">
               <SheetHeader>
-                <SheetTitle>🍳 Kitchen History (Completed Orders)</SheetTitle>
+                <SheetTitle>{L.historyTitle}</SheetTitle>
               </SheetHeader>
               <div className="mt-4 space-y-4 max-h-[80vh] overflow-y-auto">
                 <Accordion type="single" collapsible>
@@ -159,9 +176,9 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
                               <Card key={order.id} className="p-3 opacity-75">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="font-medium">
-                                    Order #{order.orderNumber || order.id} - Table {order.tableNumber} - {order.waiterName || 'Unknown Waiter'}
+                                    {L.order}{order.orderNumber || order.id} - {L.table} {order.tableNumber} - {order.waiterName || L.unknownWaiter}
                                   </span>
-                                  <Badge className="bg-green-600">{order.status}</Badge>
+                                  <Badge className="bg-green-600">{order.status === 'ready' ? L.ready : order.status}</Badge>
                                 </div>
                                 <div className="space-y-1">
                                   {order.items.map((item, itemIndex) => (
@@ -179,7 +196,7 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
                   })}
                   {completedBatches.length === 0 && (
                     <div className="text-center text-gray-500 py-4">
-                      No completed kitchen orders yet
+                      {L.noCompleted}
                     </div>
                   )}
                 </Accordion>
@@ -194,7 +211,7 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
 
       <div className="p-4 space-y-4">
         <Card className="p-4 bg-red-50 border-red-200">
-          <h3 className="mb-3">Production Summary</h3>
+          <h3 className="mb-3">{L.productionSummary}</h3>
           <div className="flex flex-wrap gap-3">
             {Object.entries(summary).map(([item, count]) => (
               <Badge key={item} className="bg-red-600 text-white border-0 px-4 py-2">
@@ -205,14 +222,14 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
         </Card>
 
         <div>
-          <h3 className="mb-3">Order Queue</h3>
+          <h3 className="mb-3">{L.orderQueue}</h3>
           <div className="space-y-4">
             {kitchenOrders.map((order) => (
               <Card key={order.id} className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p>Order #{order.orderNumber || order.id}</p>
-                    <p className="text-gray-600">Table {order.tableNumber} - {order.waiterName || 'Unknown Waiter'}</p>
+                    <p>{L.order}{order.orderNumber || order.id}</p>
+                    <p className="text-gray-600">{L.table} {order.tableNumber} - {order.waiterName || L.unknownWaiter}</p>
                   </div>
                   <div className={`flex items-center gap-1 ${getTimerColor(order.createdAt)}`}>
                     <Clock className="w-4 h-4" />
@@ -229,9 +246,9 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
                       <span>{item.quantity}x {item.name}</span>
                       {((item.requiresButcher && !item.butcherReady) || (item.requiresBar && !item.barReady)) && (
                         <Badge className="bg-orange-600 text-white border-0">
-                          {(item.requiresButcher && !item.butcherReady) ? "Waiting for Butcher" :
-                           (item.requiresBar && !item.barReady) ? "Waiting for Bar" :
-                           "Ready to Cook"}
+                          {(item.requiresButcher && !item.butcherReady) ? L.waitingForButcher :
+                           (item.requiresBar && !item.barReady) ? L.waitingForBar :
+                           L.ready}
                         </Badge>
                       )}
                     </div>
@@ -243,7 +260,7 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
                   disabled={!canMarkReady(order)}
                   onClick={() => handleMarkReady(order.id)}
                 >
-                  Ready for Pickup
+                  {L.ready}
                 </Button>
               </Card>
             ))}
