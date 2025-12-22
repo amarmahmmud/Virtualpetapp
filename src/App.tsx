@@ -5,7 +5,6 @@ import { MenuManagement } from "./components/manager/MenuManagement";
 import { InventoryManagement } from "./components/manager/InventoryManagement";
 import { StaffManagement } from "./components/manager/StaffManagement";
 import { ManagerHistory } from "./components/manager/ManagerHistory";
-import { Tables } from "./components/waiter/Tables";
 import { NewOrder } from "./components/waiter/NewOrder";
 import { MyOrders } from "./components/waiter/MyOrders";
 import { ReadyOrders } from "./components/waiter/ReadyOrders";
@@ -17,9 +16,9 @@ import { KitchenWorkstation } from "./components/kitchen/KitchenWorkstation";
 import { BarWorkstation } from "./components/bar/BarWorkstation";
 import { LayoutDashboard, UtensilsCrossed, Package, Users, History, Table2, ShoppingBag, DollarSign, LogOut, RefreshCcw } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth, db, storage } from "./firebase";
+import { auth, db } from "./firebase";
+import { t, getLocale, setLocale } from "./i18n";
 import { doc, getDoc, getDocFromCache, collection, addDoc, getDocs, updateDoc, onSnapshot, query, orderBy, where } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { logActivity } from "./utils/activityLogger";
 
 // Notification system for low stock alerts
@@ -737,14 +736,18 @@ export default function App() {
 
       setSelectedTable(null);
       setCurrentScreen("my-orders");
-      // Update table status
-      const updatedTables = tables.map(table =>
-        table.number === tableNumber ? { ...table, status: "occupied" as const } : table
-      );
-      setTables(updatedTables);
-
-      // Update table status in Firestore
-      updateTableStatusInFirestore(tableNumber, "occupied");
+      if (tableNumber > 0) {
+        if (tableNumber > 0) {
+          // Update table status
+          const updatedTables = tables.map(table =>
+            table.number === tableNumber ? { ...table, status: "occupied" as const } : table
+          );
+          setTables(updatedTables);
+  
+          // Update table status in Firestore
+          updateTableStatusInFirestore(tableNumber, "occupied");
+        }
+      }
     } catch (error) {
       console.error('Error submitting order:', error);
       alert('Failed to submit order. Please try again.');
@@ -772,11 +775,13 @@ export default function App() {
         });
 
         // Free up the table immediately on payment
-        const updatedTables = tables.map(table =>
-          table.number === order.tableNumber ? { ...table, status: "available" as const } : table
-        );
-        setTables(updatedTables);
-        updateTableStatusInFirestore(order.tableNumber, "available");
+        if (order.tableNumber > 0) {
+          const updatedTables = tables.map(table =>
+            table.number === order.tableNumber ? { ...table, status: "available" as const } : table
+          );
+          setTables(updatedTables);
+          updateTableStatusInFirestore(order.tableNumber, "available");
+        }
       }
     } catch (error) {
       console.error('Error marking order as paid:', error);
@@ -797,73 +802,71 @@ export default function App() {
         alert('Please select a valid image file.');
         return;
       }
-
       if (paymentImage.size > 10 * 1024 * 1024) { // 10MB limit
         alert('Image file is too large. Please select an image smaller than 10MB.');
         return;
       }
 
-      // Sanitize filename - remove spaces and special characters
-      const sanitizedFileName = paymentImage.name
-        .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscore
-        .toLowerCase();
+      // Upload to Cloudinary (unsigned)
+      const cloudName = 'dwqgypyim';
+      const uploadPreset = 'ml_default';
+      const folder = 'payment-proofs';
 
-      // Create unique filename
-      const timestamp = Date.now();
-      const fileExtension = sanitizedFileName.split('.').pop() || 'jpg';
-      const uniqueFileName = `${orderId}_${timestamp}_${sanitizedFileName}`;
+      const form = new FormData();
+      form.append('file', paymentImage);
+      form.append('upload_preset', uploadPreset);
+      form.append('folder', folder);
 
-      console.log('Uploading file:', uniqueFileName, 'Size:', paymentImage.size, 'Type:', paymentImage.type);
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: form,
+      });
 
-      // Upload image to Firebase Storage
-      const imageRef = ref(storage, `payment-proofs/${uniqueFileName}`);
-      const snapshot = await uploadBytes(imageRef, paymentImage);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text().catch(() => '');
+        throw new Error(`Cloudinary upload failed (${uploadRes.status}): ${errText}`);
+      }
 
-      console.log('Upload successful, download URL:', downloadURL);
+      const uploadJson: any = await uploadRes.json();
+      const downloadURL: string | undefined = uploadJson.secure_url || uploadJson.url;
+      const publicId: string | undefined = uploadJson.public_id;
+
+      if (!downloadURL) {
+        throw new Error('Cloudinary response missing secure_url');
+      }
 
       // Update order with payment details
       await updateDoc(doc(db, 'orders', orderId), {
         status: "paid",
         paymentMethod: "mobile",
         paymentImageUrl: downloadURL,
-        paymentImageName: uniqueFileName,
+        paymentImageName: publicId || null,
         paymentSubmittedAt: new Date(),
-        paymentStatus: "pending_approval", // New field for cashier approval
+        paymentStatus: "pending_approval", // For cashier approval
         updatedAt: new Date(),
       });
 
       // Log activity
       await logActivity({
         role: 'Waiter',
-        description: `Mobile banking payment submitted for approval`,
+        description: `Mobile banking payment submitted for approval (Cloudinary)`,
         orderId,
         tableNumber: order.tableNumber,
       });
 
       // Free up the table immediately on mobile payment submission
-      const updatedTables = tables.map(table =>
-        table.number === order.tableNumber ? { ...table, status: "available" as const } : table
-      );
-      setTables(updatedTables);
-      updateTableStatusInFirestore(order.tableNumber, "available");
+      if (order.tableNumber > 0) {
+        const updatedTables = tables.map(table =>
+          table.number === order.tableNumber ? { ...table, status: "available" as const } : table
+        );
+        setTables(updatedTables);
+        updateTableStatusInFirestore(order.tableNumber, "available");
+      }
 
       alert('Payment proof submitted successfully! Waiting for cashier approval.');
     } catch (error: any) {
-      console.error('Error processing mobile banking payment:', error);
-
-      // Provide more specific error messages
-      if (error.code === 'storage/unauthorized') {
-        alert('Upload failed: You do not have permission to upload files. Please check your authentication.');
-      } else if (error.code === 'storage/canceled') {
-        alert('Upload was cancelled.');
-      } else if (error.code === 'storage/quota-exceeded') {
-        alert('Upload failed: Storage quota exceeded.');
-      } else if (error.code === 'storage/invalid-format') {
-        alert('Upload failed: Invalid file format.');
-      } else {
-        alert(`Failed to submit payment: ${error.message || 'Unknown error'}`);
-      }
+      console.error('Error processing mobile banking payment (Cloudinary):', error);
+      alert(`Failed to submit payment: ${error?.message || 'Unknown error'}`);
     }
   };
 
@@ -890,7 +893,7 @@ export default function App() {
 
       // Set table to available
       const order = orders.find(o => o.id === orderId);
-      if (order) {
+      if (order && order.tableNumber > 0) {
         const updatedTables = tables.map(table =>
           table.number === order.tableNumber ? { ...table, status: "available" as const } : table
         );
@@ -927,7 +930,7 @@ export default function App() {
 
       // Set table to available
       const order = orders.find(o => o.id === orderId);
-      if (order) {
+      if (order && order.tableNumber > 0) {
         const updatedTables = tables.map(table =>
           table.number === order.tableNumber ? { ...table, status: "available" as const } : table
         );
@@ -1005,11 +1008,13 @@ export default function App() {
       });
 
       // Free up the table
-      const updatedTables = tables.map(table =>
-        table.number === order.tableNumber ? { ...table, status: "available" as const } : table
-      );
-      setTables(updatedTables);
-      updateTableStatusInFirestore(order.tableNumber, "available");
+      if (order.tableNumber > 0) {
+        const updatedTables = tables.map(table =>
+          table.number === order.tableNumber ? { ...table, status: "available" as const } : table
+        );
+        setTables(updatedTables);
+        updateTableStatusInFirestore(order.tableNumber, "available");
+      }
 
       // Log activity
       await logActivity({
@@ -1072,6 +1077,20 @@ export default function App() {
       <RefreshCcw className="w-5 h-5" />
     </button>
   );
+
+  const LocaleToggle = () => (
+    <button
+      onClick={() => { const next = getLocale() === 'en' ? 'am' : 'en'; setLocale(next); window.location.reload(); }}
+      aria-label="Toggle Language"
+      className="fixed bottom-36 right-4 bg-gray-700 text-white rounded-full px-3 py-2 shadow-md text-xs"
+      title="Toggle Language"
+    >
+      {getLocale() === 'en' ? 'AM' : 'EN'}
+    </button>
+  );
+
+
+
 
   if (authInitializing) {
     return (
@@ -1186,9 +1205,17 @@ export default function App() {
       <div className="min-h-screen bg-gray-50">
         <OfflineBanner />
         <RefreshFab />
+        <LocaleToggle />
         <InfoToast />
         {currentScreen === "default" && (
-          <Tables tables={tables} onSelectTable={setSelectedTable} onAddTable={handleAddTable} />
+          <div className="p-6">
+            <button
+              onClick={() => setSelectedTable(0)}
+              className="w-full py-6 text-white bg-blue-600 rounded-lg text-lg"
+            >
+              {t('createOrder')}
+            </button>
+          </div>
         )}
         {currentScreen === "ready-orders" && (
           <ReadyOrders
@@ -1211,13 +1238,13 @@ export default function App() {
         <nav className="fixed bottom-0 left-0 right-0 bg-white border-t">
           <div className="flex justify-around">
             <button
-              onClick={() => setCurrentScreen("default")}
+              onClick={() => setSelectedTable(0)}
               className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "default" ? "text-blue-600" : "text-gray-600"
+                selectedTable === 0 ? "text-blue-600" : "text-gray-600"
               }`}
             >
-              <Table2 className="w-5 h-5" />
-              <span className="mt-1">Tables</span>
+              <UtensilsCrossed className="w-5 h-5" />
+              <span className="mt-1">{t('createOrder')}</span>
             </button>
             <button
               onClick={() => setCurrentScreen("ready-orders")}
@@ -1256,6 +1283,7 @@ export default function App() {
       <div className="min-h-screen bg-gray-50">
         <OfflineBanner />
         <RefreshFab />
+        <LocaleToggle />
         <InfoToast />
         {currentScreen === "default" && (
           <PendingConfirmation
@@ -1307,6 +1335,7 @@ export default function App() {
         <OfflineBanner />
         <ButcherWorkstation orders={orders} onLogout={handleLogout} />
         <RefreshFab />
+        <LocaleToggle />
         <InfoToast />
       </>
     );
@@ -1319,6 +1348,7 @@ export default function App() {
         <OfflineBanner />
         <KitchenWorkstation orders={orders} onLogout={handleLogout} />
         <RefreshFab />
+        <LocaleToggle />
         <InfoToast />
       </>
     );

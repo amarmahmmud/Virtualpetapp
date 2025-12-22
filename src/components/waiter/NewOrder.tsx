@@ -8,6 +8,7 @@ import { Search, ShoppingCart, ArrowLeft, LogOut } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../../firebase";
+import { t } from "../../i18n";
 
 interface MenuItem {
   id: string;
@@ -104,7 +105,7 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
               <Button variant="ghost" size="sm" onClick={onBack}>
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-              <h2>New Order - Table {tableNumber}</h2>
+              <h2>{t('createOrder')}{tableNumber > 0 ? ` - ${t('table')} ${tableNumber}` : ''}</h2>
             </div>
             <Button variant="ghost" size="sm" onClick={onLogout} className="text-gray-600">
               <LogOut className="w-4 h-4" />
@@ -129,7 +130,7 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <h2>New Order - Table {tableNumber}</h2>
+            <h2>{t('createOrder')}{tableNumber > 0 ? ` - ${t('table')} ${tableNumber}` : ''}</h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onLogout} className="text-gray-600">
             <LogOut className="w-4 h-4" />
@@ -210,7 +211,7 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[80vh]">
               <SheetHeader>
-                <SheetTitle>Order Cart - Table {tableNumber}</SheetTitle>
+                <SheetTitle>{t('order')}{tableNumber > 0 ? ` - ${t('table')} ${tableNumber}` : ''}</SheetTitle>
               </SheetHeader>
               <div className="mt-4 space-y-3 overflow-y-auto max-h-[calc(80vh-200px)]">
                 {cart.map((item) => (
