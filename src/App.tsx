@@ -1082,7 +1082,7 @@ export default function App() {
     <button
       onClick={() => { const next = getLocale() === 'en' ? 'am' : 'en'; setLocale(next); window.location.reload(); }}
       aria-label="Toggle Language"
-      className="fixed bottom-36 right-4 bg-gray-700 text-white rounded-full px-3 py-2 shadow-md text-xs"
+      className="fixed bottom-36 left-4 bg-gray-700 text-white rounded-full px-3 py-2 shadow-md text-xs"
       title="Toggle Language"
     >
       {getLocale() === 'en' ? 'AM' : 'EN'}
@@ -1130,6 +1130,7 @@ export default function App() {
       <div className="min-h-screen bg-gray-50">
         <OfflineBanner />
         <RefreshFab />
+        <LocaleToggle />
         <InfoToast />
         {currentScreen === "default" && <ManagerDashboard notifications={notifications} onDismissNotification={handleDismissNotification} isOnline={isOnline} ordersData={orders} />}
         {currentScreen === "menu" && <MenuManagement />}
@@ -1361,6 +1362,7 @@ export default function App() {
         <OfflineBanner />
         <BarWorkstation orders={orders} onLogout={handleLogout} />
         <RefreshFab />
+        <LocaleToggle />
         <InfoToast />
       </>
     );
