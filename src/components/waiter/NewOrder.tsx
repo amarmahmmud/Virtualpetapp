@@ -188,24 +188,24 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
                   onClick={() => addToCart(item)}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
                           alt={item.name}
-                          className="h-14 w-14 object-cover rounded border"
+                          className="h-14 w-14 object-cover rounded border flex-shrink-0"
                         />
                       ) : (
-                        <div className="h-14 w-14 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                        <div className="h-14 w-14 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
                           No Image
                         </div>
                       )}
-                      <div>
-                        <p>{item.name}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{item.name}</p>
                         <p className="text-gray-600 mt-1">${item.price.toFixed(2)}</p>
                       </div>
                     </div>
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shrink-0">
                       Add
                     </Button>
                   </div>
@@ -232,24 +232,24 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
                 {cart.map((item) => (
                   <Card key={item.id} className="p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
                             alt={item.name}
-                            className="h-12 w-12 object-cover rounded border"
+                            className="h-12 w-12 object-cover rounded border flex-shrink-0"
                           />
                         ) : (
-                          <div className="h-12 w-12 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                          <div className="h-12 w-12 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
                             No Image
                           </div>
                         )}
-                        <div className="flex-1">
-                          <p>{item.name}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate">{item.name}</p>
                           <p className="text-gray-600">${item.price.toFixed(2)}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 shrink-0">
                         <Button
                           variant="outline"
                           size="sm"
