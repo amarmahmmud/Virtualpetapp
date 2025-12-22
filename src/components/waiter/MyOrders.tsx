@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Badge } from "../ui/badge";
+import { getLocale } from "../../i18n";
 
 interface Order {
   id: string;
@@ -28,6 +29,31 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const lc = getLocale();
+  const L = {
+    title: lc === 'am' ? 'የእኔ ትዕዛዞች' : 'My Orders',
+    table: lc === 'am' ? 'ጠረጴዛ' : 'Table',
+    items: lc === 'am' ? 'ንጥሎች' : 'Items',
+    total: lc === 'am' ? 'ጠቅላላ' : 'Total',
+    empty: lc === 'am' ? 'ምንም ንቁ ትዕዛዞች የሉም' : 'No active orders',
+    cancelOrder: lc === 'am' ? 'ትዕዛዙን ሰርዝ' : 'Cancel Order',
+    generateBill: lc === 'am' ? 'መጨረሻ ቢል ፍጠር' : 'Generate Final Bill',
+    pickUp: lc === 'am' ? 'መውሰድ' : 'Pick Up',
+    markAsPaid: lc === 'am' ? 'ክፍያ ተከፍሏል ይሉ' : 'Mark as Paid',
+    paid: lc === 'am' ? 'ክፍያ ተከፍሏል' : 'Paid',
+    paymentMethodTitle: lc === 'am' ? 'የክፍያ ዘዴን ይምረጡ' : 'Select Payment Method',
+    cash: lc === 'am' ? 'ጥሬ ገንዘብ' : 'Cash',
+    mobileUpload: lc === 'am' ? 'ሞባይል ባንክ ክፍያ (ማስረጃ ያስገቡ)' : 'Mobile Banking (Upload Proof)',
+  };
+  const STATUS = {
+    ready: lc === 'am' ? 'ለመውሰድ ዝግ ነው' : 'Ready for Pickup',
+    picked: lc === 'am' ? 'ተወሰደ' : 'Picked Up',
+    inKitchen: lc === 'am' ? 'በምግብ ቤት ውስጥ' : 'In Kitchen',
+    paid: lc === 'am' ? 'ክፍያ ተከፍሏል' : 'Paid',
+    pending: lc === 'am' ? 'በመጠባበቅ ላይ' : 'Pending',
+  };
+
+
   const getTotalPrice = (items: { price: number; quantity: number }[]) => {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   };
@@ -46,11 +72,11 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
 
   return (
     <div className="p-4 space-y-4 pb-20">
-      <h2>My Orders</h2>
+      <h2>{L.title}</h2>
 
       {activeOrders.length === 0 ? (
         <Card className="p-8 text-center text-gray-500">
-          No active orders
+          {L.empty}
         </Card>
       ) : (
         <div className="space-y-3">
@@ -77,22 +103,23 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
           {selectedOrder && (
             <div className="space-y-4">
               <div>
-                <p className="text-gray-600">Table {selectedOrder.tableNumber}</p>
+                <p className="text-gray-600">{L.table} {selectedOrder.tableNumber}</p>
                 <Badge className={`mt-2 ${
                   selectedOrder.status === "ready" ? "bg-green-500" :
                   selectedOrder.status === "picked" ? "bg-blue-500" :
                   selectedOrder.status === "in-kitchen" ? "bg-orange-500" :
+                  selectedOrder.status === "paid" ? "bg-green-600" :
                   "bg-gray-500"
                 } text-white border-0`}>
-                  {selectedOrder.status === "ready" ? "Ready for Pickup" :
-                   selectedOrder.status === "picked" ? "Picked Up" :
-                   selectedOrder.status === "in-kitchen" ? "In Kitchen" :
-                   selectedOrder.status === "paid" ? "Paid" : "Pending"}
+                  {selectedOrder.status === "ready" ? STATUS.ready :
+                   selectedOrder.status === "picked" ? STATUS.picked :
+                   selectedOrder.status === "in-kitchen" ? STATUS.inKitchen :
+                   selectedOrder.status === "paid" ? STATUS.paid : STATUS.pending}
                 </Badge>
               </div>
 
               <div>
-                <p className="mb-2">Items:</p>
+                <p className="mb-2">{L.items}:</p>
                 <div className="space-y-2">
                   {selectedOrder.items.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-gray-700">
@@ -105,7 +132,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
 
               <div className="border-t pt-3">
                 <div className="flex justify-between">
-                  <span>Total:</span>
+                  <span>{L.total}:</span>
                   <span>${getTotalPrice(selectedOrder.items).toFixed(2)}</span>
                 </div>
               </div>
@@ -115,36 +142,36 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
                   <Button
                     className="w-full bg-red-600 hover:bg-red-700"
                     onClick={() => {
-                      // Cancel and immediately close dialog for snappy UX
                       onCancelOrder(selectedOrder.id);
                       setShowPaymentOptions(false);
                       setSelectedOrder(null);
                     }}
                   >
-                    Cancel Order
+                    {L.cancelOrder}
                   </Button>
                 )}
                 <Button
                   className="w-full bg-blue-600 hover:bg-blue-700"
                   onClick={() => {
-                    alert(`Bill generated for Order #${selectedOrder.orderNumber || selectedOrder.id}\nTotal: $${getTotalPrice(selectedOrder.items).toFixed(2)}`);
-                    // Close the dialog after bill generation
+                    alert(`${lc === 'am'
+                      ? `ለትዕዛዝ #${selectedOrder.orderNumber || selectedOrder.id} መጨረሻ ቢል ተፈጥሯል\n${L.total}: $${getTotalPrice(selectedOrder.items).toFixed(2)}`
+                      : `Bill generated for Order #${selectedOrder.orderNumber || selectedOrder.id}\n${L.total}: $${getTotalPrice(selectedOrder.items).toFixed(2)}`
+                    }`);
                     setShowPaymentOptions(false);
                     setSelectedOrder(null);
                   }}
                 >
-                  Generate Final Bill
+                  {L.generateBill}
                 </Button>
                 {selectedOrder.status === "ready" && (
                   <Button
                     className="w-full bg-purple-600 hover:bg-purple-700"
                     onClick={() => {
                       onPickUp(selectedOrder.id);
-                      // Close dialog after pickup to return to list fast
                       setSelectedOrder(null);
                     }}
                   >
-                    Pick Up
+                    {L.pickUp}
                   </Button>
                 )}
                 {(selectedOrder.status === "picked" || selectedOrder.status === "paid") && (
@@ -152,7 +179,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
                     className="w-full bg-green-600 hover:bg-green-700"
                     onClick={() => setShowPaymentOptions(true)}
                   >
-                    {selectedOrder.status === "paid" ? "Paid" : "Mark as Paid"}
+                    {selectedOrder.status === "paid" ? L.paid : L.markAsPaid}
                   </Button>
                 )}
               </div>
@@ -164,7 +191,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
       <Dialog open={showPaymentOptions} onOpenChange={setShowPaymentOptions}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Select Payment Method</DialogTitle>
+            <DialogTitle>{L.paymentMethodTitle}</DialogTitle>
           </DialogHeader>
 
           {/* Hidden file input for mobile banking proof */}
@@ -194,16 +221,15 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
               className="w-full bg-green-600 hover:bg-green-700"
               onClick={() => handleMarkAsPaid("cash")}
             >
-              Cash
+              {L.cash}
             </Button>
             <Button
               className="w-full bg-blue-600 hover:bg-blue-700"
               onClick={() => {
-                // Trigger image picker for mobile banking proof
                 fileInputRef.current?.click();
               }}
             >
-              Mobile Banking (Upload Proof)
+              {L.mobileUpload}
             </Button>
           </div>
         </DialogContent>

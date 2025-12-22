@@ -1082,7 +1082,7 @@ export default function App() {
     <button
       onClick={() => { const next = getLocale() === 'en' ? 'am' : 'en'; setLocale(next); window.location.reload(); }}
       aria-label="Toggle Language"
-      className="fixed bottom-36 left-4 bg-gray-700 text-white rounded-full px-3 py-2 shadow-md text-xs"
+      className="fixed top-4 left-4 z-50 bg-yellow-400 text-black rounded px-3 py-2 border border-black shadow-none text-xs"
       title="Toggle Language"
     >
       {getLocale() === 'en' ? 'AM' : 'EN'}
@@ -1095,6 +1095,7 @@ export default function App() {
   if (authInitializing) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LocaleToggle />
         <div className="flex flex-col items-center gap-4">
           <img src="/icons/icon-192.png" alt="VRM" width="72" height="72" />
           <div className="animate-spin h-6 w-6 rounded-full border-2 border-gray-300 border-t-blue-600" />
@@ -1106,6 +1107,7 @@ export default function App() {
   if (userStatus === 'pending') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+        <LocaleToggle />
         <div className="bg-white p-8 rounded-lg shadow-md text-center">
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Account Pending Approval</h1>
           <p className="text-gray-600 mb-4">Your registration is being reviewed by a manager. Please wait for approval to access the system.</p>
@@ -1147,7 +1149,7 @@ export default function App() {
               }`}
             >
               <LayoutDashboard className="w-5 h-5" />
-              <span className="mt-1">Dashboard</span>
+              <span className="mt-1">{t('dashboard')}</span>
             </button>
             <button
               onClick={() => setCurrentScreen("menu")}
@@ -1156,7 +1158,7 @@ export default function App() {
               }`}
             >
               <UtensilsCrossed className="w-5 h-5" />
-              <span className="mt-1">Menu</span>
+              <span className="mt-1">{t('menu')}</span>
             </button>
             <button
               onClick={() => setCurrentScreen("inventory")}
@@ -1165,7 +1167,7 @@ export default function App() {
               }`}
             >
               <Package className="w-5 h-5" />
-              <span className="mt-1">Inventory</span>
+              <span className="mt-1">{t('inventory')}</span>
             </button>
             <button
               onClick={() => setCurrentScreen("staff")}
@@ -1174,14 +1176,14 @@ export default function App() {
               }`}
             >
               <Users className="w-5 h-5" />
-              <span className="mt-1">Staff</span>
+              <span className="mt-1">{t('staff')}</span>
             </button>
             <button
               onClick={handleLogout}
               className="flex-1 flex flex-col items-center py-3 text-gray-600"
             >
               <LogOut className="w-5 h-5" />
-              <span className="mt-1">Logout</span>
+              <span className="mt-1">{t('logout')}</span>
             </button>
           </div>
         </nav>
@@ -1254,7 +1256,7 @@ export default function App() {
               }`}
             >
               <ShoppingBag className="w-5 h-5" />
-              <span className="mt-1">Ready</span>
+              <span className="mt-1">{t('ready')}</span>
             </button>
             <button
               onClick={() => setCurrentScreen("my-orders")}
@@ -1263,14 +1265,14 @@ export default function App() {
               }`}
             >
               <UtensilsCrossed className="w-5 h-5" />
-              <span className="mt-1">Orders</span>
+              <span className="mt-1">{t('orders')}</span>
             </button>
             <button
               onClick={handleLogout}
               className="flex-1 flex flex-col items-center py-3 text-gray-600"
             >
               <LogOut className="w-5 h-5" />
-              <span className="mt-1">Logout</span>
+              <span className="mt-1">{t('logout')}</span>
             </button>
           </div>
         </nav>
@@ -1305,7 +1307,7 @@ export default function App() {
               }`}
             >
               <DollarSign className="w-5 h-5" />
-              <span className="mt-1">Pending</span>
+              <span className="mt-1">{t('pending')}</span>
             </button>
             <button
               onClick={() => setCurrentScreen("history")}
@@ -1314,14 +1316,14 @@ export default function App() {
               }`}
             >
               <History className="w-5 h-5" />
-              <span className="mt-1">History</span>
+              <span className="mt-1">{t('history')}</span>
             </button>
             <button
               onClick={handleLogout}
               className="flex-1 flex flex-col items-center py-3 text-gray-600"
             >
               <LogOut className="w-5 h-5" />
-              <span className="mt-1">Logout</span>
+              <span className="mt-1">{t('logout')}</span>
             </button>
           </div>
         </nav>
