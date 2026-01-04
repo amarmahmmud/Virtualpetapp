@@ -1,21 +1,23 @@
+import React, { useState, useEffect } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { HistoryListItem } from "../HistoryListItem";
-import { History, ChefHat, Clock, LogOut, RefreshCcw } from "lucide-react";
+import { History, ChefHat, Clock, LogOut, RefreshCcw, ArrowLeft } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
-import { updateDoc, doc } from "firebase/firestore";
+import { updateDoc, doc, collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../../firebase";
 import { logActivity } from "../../utils/activityLogger";
 import { getLocale } from "../../i18n";
+import { KitchenDashboard } from "./KitchenDashboard";
 
 interface Order {
   id: string;
   orderNumber?: number;
   tableNumber: number;
   status: "pending" | "in-kitchen" | "at-bar" | "ready" | "paid" | "confirmed" | "picked";
-  items: { name: string; quantity: number; price: number; requiresButcher?: boolean; butcherReady?: boolean; requiresBar?: boolean; barReady?: boolean }[];
+  items: { name: string; quantity: number; price: number; requiresButcher?: boolean; butcherReady?: boolean; requiresBar?: boolean; barReady?: boolean; imageUrl?: string }[];
   timeElapsed: string;
   createdAt: Date;
   paymentMethod?: "cash" | "mobile";
@@ -34,7 +36,23 @@ interface KitchenWorkstationProps {
 }
 
 export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps) {
+  const [currentView, setCurrentView] = useState<'dashboard' | 'workstation'>('dashboard');
+  const [menuItems, setMenuItems] = useState<{id: string, name: string, imageUrl?: string}[]>([]);
   const kitchenOrders = orders.filter(order => order.status === "in-kitchen");
+
+  // Fetch menu items for images
+  useEffect(() => {
+    const menuQuery = query(collection(db, 'menu'), orderBy('name'));
+    const unsubscribe = onSnapshot(menuQuery, (snapshot) => {
+      const menuData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+        imageUrl: doc.data().imageUrl,
+      }));
+      setMenuItems(menuData);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const lc = getLocale();
   const L = {
@@ -43,11 +61,11 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
     productionSummary: lc === 'am' ? 'የምርት ማጠቃለያ' : 'Production Summary',
     orderQueue: lc === 'am' ? 'የትዕዛዝ ረድፍ' : 'Order Queue',
     order: lc === 'am' ? 'ትዕዛዝ #' : 'Order #',
-    table: lc === 'am' ? 'ጠረጴዛ' : 'Table',
-    waiter: lc === 'am' ? 'አገልጋይ' : 'Waiter',
-    unknownWaiter: lc === 'am' ? 'ያልታወቀ አገልጋይ' : 'Unknown Waiter',
-    waitingForButcher: lc === 'am' ? 'በቡችር ላይ በመጠባበቅ ላይ' : 'Waiting for Butcher',
-    waitingForBar: lc === 'am' ? 'በባር ላይ በመጠባበቅ ላይ' : 'Waiting for Bar',
+    table: lc === 'am' ? '' : '',
+    waiter: lc === 'am' ? 'አስተናጋጅ' : 'Waiter',
+    unknownWaiter: lc === 'am' ? 'ያልታወቀ አስተናጋጅ' : 'Unknown Waiter',
+    waitingForButcher: lc === 'am' ? 'ሉካንዳ በመጠባበቅ ላይ' : 'Waiting for Butcher',
+    waitingForBar: lc === 'am' ? 'መጠጥ በመጠባበቅ ላይ' : 'Waiting for Bar',
     ready: lc === 'am' ? 'ለመውሰድ ዝግ ነው' : 'Ready for Pickup',
     noCompleted: lc === 'am' ? 'የተጠናቀቁ የምግብ ቤት ትዕዛዞች የሉም' : 'No completed kitchen orders yet',
   };
@@ -60,8 +78,8 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
   };
 
   // Create batches of 10 orders each
-  const createBatches = (orderList: Order[]) => {
-    const batches = [];
+  const createBatches = (orderList: Order[]): Order[][] => {
+    const batches: Order[][] = [];
     for (let i = 0; i < orderList.length; i += 10) {
       batches.push(orderList.slice(i, i + 10));
     }
@@ -137,8 +155,27 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
 
   const summary = getProductionSummary();
 
+  if (currentView === 'dashboard') {
+    return (
+      <KitchenDashboard
+        orders={orders}
+        onViewWorkstation={() => setCurrentView('workstation')}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Back to Dashboard Button */}
+      <div className="bg-white border-b p-4">
+        <button
+          onClick={() => setCurrentView('dashboard')}
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboard
+        </button>
+      </div>
       <div className="bg-white border-b p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
@@ -203,6 +240,9 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
               </div>
             </SheetContent>
           </Sheet>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <RefreshCcw className="w-4 h-4" />
+          </Button>
           <Button variant="outline" size="sm" onClick={onLogout}>
             <LogOut className="w-4 h-4" />
           </Button>
@@ -238,24 +278,23 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
                 </div>
 
                 <div className="space-y-2 mb-4">
-                  {order.items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded"
-                    >
-                      <span>{item.quantity}x {item.name}</span>
-                      {((item.requiresButcher && !item.butcherReady) || (item.requiresBar && !item.barReady)) && (
-                        <Badge className="bg-orange-600 text-white border-0">
-                          {(item.requiresButcher && !item.butcherReady) ? L.waitingForButcher :
-                           (item.requiresBar && !item.barReady) ? L.waitingForBar :
-                           L.ready}
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
+                  {order.items.map((item, idx) => {
+                    const badgeText = (item.requiresButcher && !item.butcherReady) ? L.waitingForButcher : (item.requiresBar && !item.barReady) ? L.waitingForBar : L.ready;
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{item.quantity}x {item.name}</span>
+                          {((item.requiresButcher && !item.butcherReady) || (item.requiresBar && !item.barReady)) && <Badge className="bg-orange-600 text-white border-0">{badgeText}</Badge>}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                <Button
+                <Button size="xl"
                   className="w-full bg-green-600 hover:bg-green-700"
                   disabled={!canMarkReady(order)}
                   onClick={() => handleMarkReady(order.id)}
@@ -266,14 +305,6 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
             ))}
           </div>
         </div>
-        <button
-          onClick={() => window.location.reload()}
-          aria-label="Refresh"
-          className="fixed bottom-20 right-4 bg-blue-600 text-white rounded-full p-3 shadow-lg"
-          title="Refresh"
-        >
-          <RefreshCcw className="w-5 h-5" />
-        </button>
       </div>
     </div>
   );

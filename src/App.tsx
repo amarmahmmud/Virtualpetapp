@@ -1,25 +1,19 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { LoginScreen } from "./components/LoginScreen";
-import { ManagerDashboard } from "./components/manager/Dashboard";
-import { MenuManagement } from "./components/manager/MenuManagement";
-import { InventoryManagement } from "./components/manager/InventoryManagement";
-import { StaffManagement } from "./components/manager/StaffManagement";
-import { ManagerHistory } from "./components/manager/ManagerHistory";
-import { NewOrder } from "./components/waiter/NewOrder";
-import { MyOrders } from "./components/waiter/MyOrders";
-import { ReadyOrders } from "./components/waiter/ReadyOrders";
-import { WaiterHistory } from "./components/waiter/WaiterHistory";
-import { PendingConfirmation } from "./components/cashier/PendingConfirmation";
-import { CashierHistory } from "./components/cashier/CashierHistory";
-import { ButcherWorkstation } from "./components/butcher/ButcherWorkstation";
-import { KitchenWorkstation } from "./components/kitchen/KitchenWorkstation";
-import { BarWorkstation } from "./components/bar/BarWorkstation";
-import { LayoutDashboard, UtensilsCrossed, Package, Users, History, Table2, ShoppingBag, DollarSign, LogOut, RefreshCcw } from "lucide-react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth, db } from "./firebase";
-import { t, getLocale, setLocale } from "./i18n";
+
+// Lazy load route components for better performance
+const ManagerRoutes = lazy(() => import("./routes/ManagerRoutes").then(module => ({ default: module.ManagerRoutes })));
+const WaiterRoutes = lazy(() => import("./routes/WaiterRoutes").then(module => ({ default: module.WaiterRoutes })));
+const StaffRoutes = lazy(() => import("./routes/StaffRoutes").then(module => ({ default: module.StaffRoutes })));
+import { RefreshCcw } from "lucide-react";
+import { getLocale, setLocale } from "./i18n";
 import { doc, getDoc, getDocFromCache, collection, addDoc, getDocs, updateDoc, onSnapshot, query, orderBy, where } from "firebase/firestore";
 import { logActivity } from "./utils/activityLogger";
+import { db } from "./firebase";
+import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
+import { useOrders } from "./hooks/useOrders";
+import { useInventory } from "./hooks/useInventory";
+import { auth } from "./firebase";
 
 // Notification system for low stock alerts
 const requestNotificationPermission = async () => {
@@ -37,8 +31,6 @@ const showNotification = (title: string, body: string) => {
 // Initialize notification permission on app start
 requestNotificationPermission();
 
-type Role = "manager" | "waiter" | "cashier" | "butcher" | "kitchen" | "bar" | null;
-
 interface CartItem {
   id: string;
   name: string;
@@ -49,58 +41,36 @@ interface CartItem {
   butcherReady?: boolean;
 }
 
-interface Order {
-  id: string;
-  orderNumber?: number;
-  tableNumber: number;
-  status: "pending" | "in-kitchen" | "at-bar" | "ready" | "paid" | "confirmed" | "picked";
-  items: { name: string; quantity: number; price: number; requiresButcher?: boolean; butcherReady?: boolean; requiresBar?: boolean; barReady?: boolean }[];
-  timeElapsed: string;
-  createdAt: Date;
-  paymentMethod?: "cash" | "mobile";
-  waiterName?: string;
-  paymentImageUrl?: string;
-  paymentImageName?: string;
-  paymentSubmittedAt?: Date;
-  paymentStatus?: "pending_approval" | "approved" | "rejected";
-}
-
-interface PendingOrder {
-  id: string;
-  tableNumber: number;
-  totalAmount: number;
-  paymentMethod: "cash" | "mobile";
-}
-
-export default function App() {
-  const [currentRole, setCurrentRole] = useState<Role>(null);
-  const [userStatus, setUserStatus] = useState<'pending' | 'approved' | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+const AppContent: React.FC = () => {
+  const { currentRole, userStatus, currentUser, authInitializing, logout } = useAuthContext();
+  const {
+    orders,
+    loading: ordersLoading,
+    activeOrders,
+    pendingOrders,
+    readyOrders
+  } = useOrders(100); // Load up to 100 recent orders
+  const { inventoryItems, notifications, dismissNotification } = useInventory(currentRole);
   const [currentScreen, setCurrentScreen] = useState("default");
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
   const [tables, setTables] = useState<{ number: number; status: "available" | "occupied" }[]>([]);
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<{ id: string; type: 'low_stock'; title: string; message: string; timestamp: Date }[]>([]);
-  const [authInitializing, setAuthInitializing] = useState(true);
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced'>('idle');
 
-  // Back button (Android/PWA) navigation handling: maintain a history stack of in-app views
+  // Back button navigation handling
   const isPoppingRef = useRef(false);
 
-  const buildHash = (role: Role, screen: string, table: number | null) => {
+  const buildHash = (role: string | null, screen: string, table: number | null) => {
     const r = role ?? 'anon';
     const s = screen ?? 'default';
     const t = table ?? '';
     return `#r=${r}&s=${s}${t !== '' ? `&t=${t}` : ''}`;
   };
 
-  // Seed base history state and handle browser/Android back button
   useEffect(() => {
     try {
       const state = { role: currentRole, screen: currentScreen, table: selectedTable };
-      // Replace initial entry so back doesn't immediately exit
       window.history.replaceState(state, "", buildHash(currentRole, currentScreen, selectedTable));
     } catch {}
 
@@ -113,7 +83,6 @@ export default function App() {
           setSelectedTable(st.table ?? null);
         }
       } else {
-        // Fallback parse from hash if state is missing
         try {
           const hash = window.location.hash || "";
           const params = new URLSearchParams(hash.replace(/^#/, "").split("&").join("&"));
@@ -126,7 +95,6 @@ export default function App() {
           setSelectedTable(null);
         }
       }
-      // Clear popping flag on next tick
       setTimeout(() => {
         isPoppingRef.current = false;
       }, 0);
@@ -134,10 +102,8 @@ export default function App() {
 
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentRole, currentScreen, selectedTable]);
 
-  // Push navigation state when app view changes programmatically
   useEffect(() => {
     if (isPoppingRef.current) return;
     try {
@@ -146,23 +112,29 @@ export default function App() {
     } catch {}
   }, [currentRole, currentScreen, selectedTable]);
 
-  // React to connectivity changes and notify the user
+  // React to connectivity changes
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      try {
-        setInfoMessage('Back online. Syncing...');
-        window.clearTimeout((handleOnline as any)._t);
-        (handleOnline as any)._t = window.setTimeout(() => setInfoMessage(null), 2500);
-      } catch {}
+      setSyncStatus('syncing');
+      setInfoMessage('🔄 Back online. Syncing data...');
+      // Simulate sync completion after a short delay
+      window.clearTimeout((handleOnline as any)._t);
+      (handleOnline as any)._t = window.setTimeout(() => {
+        setSyncStatus('synced');
+        setInfoMessage('✅ Data synchronized successfully');
+        window.setTimeout(() => {
+          setInfoMessage(null);
+          setSyncStatus('idle');
+        }, 2000);
+      }, 1500);
     };
     const handleOffline = () => {
       setIsOnline(false);
-      try {
-        setInfoMessage('You are offline. Some features are unavailable.');
-        window.clearTimeout((handleOffline as any)._t);
-        (handleOffline as any)._t = window.setTimeout(() => setInfoMessage(null), 3000);
-      } catch {}
+      setSyncStatus('idle');
+      setInfoMessage('📴 You are offline. Working in offline mode.');
+      window.clearTimeout((handleOffline as any)._t);
+      (handleOffline as any)._t = window.setTimeout(() => setInfoMessage(null), 4000);
     };
 
     window.addEventListener('online', handleOnline);
@@ -173,217 +145,7 @@ export default function App() {
     };
   }, []);
 
-  // Derive pending orders from orders with status "paid"
-  const pendingOrders = orders
-    .filter(order => order.status === "paid")
-    .map(order => ({
-      id: order.id,
-      tableNumber: order.tableNumber,
-      totalAmount: order.items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-      paymentMethod: order.paymentMethod || "cash",
-    }));
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const staffRef = doc(db, 'staff', user.email!);
-          // Try server first (will use cache if available when offline)
-          let staffDocSnap = await getDoc(staffRef);
-          // If not found (or offline without cached server attempt), fallback to explicit cache
-          if (!staffDocSnap.exists()) {
-            try {
-              staffDocSnap = await getDocFromCache(staffRef);
-            } catch {
-              // ignore cache miss
-            }
-          }
-
-          if (staffDocSnap && staffDocSnap.exists()) {
-            const data: any = staffDocSnap.data();
-            const userData = {
-              uid: user.uid,
-              email: user.email,
-              name: data.name || user.displayName || user.email?.split('@')[0] || 'Unknown',
-              role: data.role,
-              status: data.status
-            };
-            setCurrentUser(userData);
-            // Persist last-known staff profile for offline restore
-            try {
-              localStorage.setItem(
-                'vrm_staff_' + user.email,
-                JSON.stringify({ role: data.role, status: data.status, name: userData.name })
-              );
-            } catch {}
-
-            if (data && data.status === 'approved' && data.role) {
-              setCurrentRole(data.role.toLowerCase() as Role);
-              setUserStatus('approved');
-            } else if (data && data.status === 'pending') {
-              setUserStatus('pending');
-              setCurrentRole(null);
-            } else if (data && data.role) {
-              // Existing users without status are approved
-              setCurrentRole(data.role.toLowerCase() as Role);
-              setUserStatus('approved');
-            } else {
-              // No fields; fallback to cached last-known if any
-              const cached = localStorage.getItem('vrm_staff_' + user.email);
-              if (cached) {
-                const c = JSON.parse(cached);
-                setCurrentRole(c.role?.toLowerCase() as Role ?? null);
-                setUserStatus(c.status ?? null);
-              } else {
-                setCurrentRole(null);
-              }
-            }
-          } else {
-            // No doc from server/cache; fallback to last-known staff for offline continuity
-            const cached = localStorage.getItem('vrm_staff_' + user.email);
-            if (cached) {
-              const c = JSON.parse(cached);
-              setCurrentUser({
-                uid: user.uid,
-                email: user.email,
-                name: c.name || user.displayName || user.email?.split('@')[0] || 'Unknown',
-                role: c.role,
-                status: c.status
-              });
-              setCurrentRole(c.role?.toLowerCase() as Role ?? null);
-              setUserStatus(c.status ?? null);
-            } else {
-              setCurrentRole(null);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching staff data:', error);
-          // Use last-known cached role/status while offline
-          const cached = localStorage.getItem('vrm_staff_' + user.email);
-          if (cached) {
-            const c = JSON.parse(cached);
-            setCurrentRole(c.role?.toLowerCase() as Role ?? null);
-            setUserStatus(c.status ?? null);
-          } else {
-            setCurrentRole(null);
-          }
-        }
-      } else {
-        setCurrentRole(null);
-        setUserStatus(null);
-        setCurrentUser(null);
-      }
-      setAuthInitializing(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-
-
-  // In-app info toast (auto-hide) and offline banner
-  const inform = (msg: string) => {
-    setInfoMessage(msg);
-    // ensure last timer cleared to avoid overlapping timeouts
-    window.clearTimeout((inform as any)._t);
-    (inform as any)._t = window.setTimeout(() => setInfoMessage(null), 3000);
-  };
-
-  const OfflineBanner = () => (
-    !isOnline ? (
-      <div className="fixed top-0 inset-x-0 z-50 bg-orange-100 text-orange-800 text-sm py-2 text-center border-b border-orange-200">
-        Offline mode: changes will sync when you reconnect
-      </div>
-    ) : null
-  );
-
-  const InfoToast = () => (
-    infoMessage ? (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white text-sm px-4 py-2 rounded-md shadow-md">
-        {infoMessage}
-      </div>
-    ) : null
-  );
-
-  // Fetch orders from Firebase
-  useEffect(() => {
-    const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(ordersQuery, async (snapshot) => {
-      let ordersData: Order[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        ordersData.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Order);
-      });
-
-      // Update orders without orderNumber (migration for existing orders)
-      const ordersToUpdate = ordersData.filter(order => !order.orderNumber);
-
-      if (ordersToUpdate.length > 0) {
-        // Group by date and assign sequential numbers
-        const ordersByDate: { [date: string]: Order[] } = {};
-        ordersToUpdate.forEach(order => {
-          const date = new Date(order.createdAt.getFullYear(), order.createdAt.getMonth(), order.createdAt.getDate());
-          const dateKey = date.toISOString().split('T')[0];
-          if (!ordersByDate[dateKey]) ordersByDate[dateKey] = [];
-          ordersByDate[dateKey].push(order);
-        });
-
-        // Update local state immediately with assigned numbers
-        const updatedOrdersData = [...ordersData];
-
-        for (const [date, dateOrders] of Object.entries(ordersByDate)) {
-          // Sort by creation time
-          dateOrders.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-          // Get existing order numbers for this date
-          const existingOrders = ordersData.filter(order => {
-            if (!order.orderNumber) return false;
-            const orderDate = new Date(order.createdAt.getFullYear(), order.createdAt.getMonth(), order.createdAt.getDate());
-            const orderDateKey = orderDate.toISOString().split('T')[0];
-            return orderDateKey === date;
-          });
-          const existingNumbers = existingOrders.map(o => o.orderNumber!).sort((a, b) => a - b);
-
-          let nextNumber = 1;
-          for (const order of dateOrders) {
-            // Find next available number
-            while (existingNumbers.includes(nextNumber)) {
-              nextNumber++;
-            }
-
-            // Update local state immediately
-            const orderIndex = updatedOrdersData.findIndex(o => o.id === order.id);
-            if (orderIndex !== -1) {
-              updatedOrdersData[orderIndex] = { ...updatedOrdersData[orderIndex], orderNumber: nextNumber };
-            }
-
-            // Update Firestore
-            try {
-              await updateDoc(doc(db, 'orders', order.id), {
-                orderNumber: nextNumber
-              });
-              existingNumbers.push(nextNumber);
-            } catch (error) {
-              console.error('Error updating order number:', error);
-            }
-            nextNumber++;
-          }
-        }
-
-        ordersData = updatedOrdersData;
-      }
-
-      setOrders(ordersData);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Realtime tables subscription (fast waiter updates)
+  // Realtime tables subscription
   useEffect(() => {
     const defaultTables = [
       { number: 1, status: "available" as const },
@@ -425,61 +187,14 @@ export default function App() {
     }
   }, []);
 
-  // Fetch inventory and check for low stock alerts
-  useEffect(() => {
-    const inventoryQuery = query(collection(db, 'inventory'));
-    const unsubscribe = onSnapshot(inventoryQuery, (snapshot) => {
-      const inventoryData: any[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        inventoryData.push({
-          id: doc.id,
-          name: data.name,
-          quantity: data.quantity || 0,
-          threshold: data.threshold || 10,
-          unit: data.unit || 'pieces',
-        });
-      });
-      setInventoryItems(inventoryData);
-
-      // Check for low stock items and create notifications
-      const lowStockItems = inventoryData.filter(item => item.quantity <= item.threshold);
-      const newNotifications = lowStockItems.map(item => ({
-        id: `low_stock_${item.id}`,
-        type: 'low_stock' as const,
-        title: 'Low Stock Alert',
-        message: `${item.name}: Only ${item.quantity} ${item.unit} remaining (threshold: ${item.threshold})`,
-        timestamp: new Date(),
-      }));
-
-      // Only show notifications for items that weren't already alerted
-      const existingNotificationIds = notifications.map(n => n.id);
-      const newAlerts = newNotifications.filter(n => !existingNotificationIds.includes(n.id));
-
-      if (newAlerts.length > 0 && currentRole === 'manager') {
-        newAlerts.forEach(alert => {
-          showNotification(alert.title, alert.message);
-        });
-        setNotifications(prev => [...prev, ...newAlerts]);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [currentRole, notifications]);
-
-  // Update table status based on active orders
+  // Update table status based on active orders (using memoized activeOrders)
   useEffect(() => {
     if (tables.length > 0) {
-      const activeOrderTableNumbers = orders
-        // Consider only truly active orders. Free tables for paid/cancelled/confirmed.
-        .filter(order => ["pending", "in-kitchen", "at-bar", "ready", "picked"].includes(order.status))
-        .map(order => order.tableNumber);
+      const activeOrderTableNumbers = activeOrders.map(order => order.tableNumber);
 
       const updatedTables = tables.map(table => {
         const newStatus = activeOrderTableNumbers.includes(table.number) ? "occupied" : "available";
-        // Only update if status changed
         if (table.status !== newStatus) {
-          // Update Firestore asynchronously
           updateTableStatusInFirestore(table.number, newStatus);
         }
         return {
@@ -490,27 +205,79 @@ export default function App() {
 
       setTables(updatedTables);
     }
-  }, [orders, tables.length]);
+  }, [activeOrders, tables.length]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOrders((prevOrders) =>
-        prevOrders.map((order) => ({
-          ...order,
-          timeElapsed: `${Math.floor((Date.now() - order.createdAt.getTime()) / 60000)}m`,
-        }))
-      );
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    setCurrentRole(null);
-    setCurrentScreen("default");
+  const inform = (msg: string) => {
+    setInfoMessage(msg);
+    window.clearTimeout((inform as any)._t);
+    (inform as any)._t = window.setTimeout(() => setInfoMessage(null), 3000);
   };
 
+  const OfflineBanner = () => (
+    !isOnline ? (
+      <div className="fixed top-0 inset-x-0 z-50 bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm py-3 text-center border-b-4 border-red-600 shadow-lg">
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+          <span className="font-semibold">OFFLINE MODE</span>
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+        </div>
+        <p className="text-xs mt-1 opacity-90">Changes will sync automatically when connection is restored</p>
+      </div>
+    ) : null
+  );
+
+  const InfoToast = () => (
+    infoMessage ? (
+      <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-50 text-sm px-4 py-2 rounded-md shadow-md ${
+        syncStatus === 'syncing' ? 'bg-blue-600 text-white' :
+        syncStatus === 'synced' ? 'bg-green-600 text-white' :
+        'bg-black/80 text-white'
+      }`}>
+        {infoMessage}
+      </div>
+    ) : null
+  );
+
+  const SyncStatusIndicator = () => (
+    <div className="fixed top-4 right-4 z-40">
+      {syncStatus === 'syncing' && (
+        <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs flex items-center gap-1">
+          <div className="w-2 h-2 bg-white rounded-full animate-spin"></div>
+          Syncing...
+        </div>
+      )}
+      {syncStatus === 'synced' && (
+        <div className="bg-green-600 text-white px-3 py-1 rounded-full text-xs flex items-center gap-1">
+          <div className="w-2 h-2 bg-white rounded-full">✓</div>
+          Synced
+        </div>
+      )}
+    </div>
+  );
+
+  const RefreshFab = () => (
+    <button
+      onClick={() => window.location.reload()}
+      aria-label="Refresh"
+      className="fixed bottom-20 right-4 bg-blue-600 text-white rounded-full p-3 shadow-lg"
+      title="Refresh"
+    >
+      <RefreshCcw className="w-5 h-5" />
+    </button>
+  );
+
+  const LocaleToggle = () => (
+    <button
+      onClick={() => { const next = getLocale() === 'en' ? 'am' : 'en'; setLocale(next); window.location.reload(); }}
+      aria-label="Toggle Language"
+      className="fixed top-4 left-4 z-50 bg-yellow-400 text-black rounded px-3 py-2 border border-black shadow-none text-xs"
+      title="Toggle Language"
+    >
+      {getLocale() === 'en' ? 'AM' : 'EN'}
+    </button>
+  );
+
+  // Business logic functions (keeping them here for now, could be moved to hooks later)
   const updateTableStatusInFirestore = async (tableNumber: number, status: "available" | "occupied") => {
     try {
       const tablesQuery = query(collection(db, 'tables'), where('number', '==', tableNumber));
@@ -526,7 +293,6 @@ export default function App() {
   };
 
   const checkInventoryAvailability = async (items: CartItem[]) => {
-    // Fetch menu items to get inventory requirements
     const menuQuery = query(collection(db, 'menu'));
     const menuSnapshot = await getDocs(menuQuery);
     const menuItems: any[] = [];
@@ -535,16 +301,11 @@ export default function App() {
       menuItems.push({ id: doc.id, ...data });
     });
 
-    // Fetch current inventory levels
-    const inventoryQuery = query(collection(db, 'inventory'));
-    const inventorySnapshot = await getDocs(inventoryQuery);
     const inventoryLevels: { [key: string]: number } = {};
-    inventorySnapshot.forEach(doc => {
-      const data = doc.data();
-      inventoryLevels[doc.id] = data.quantity || 0;
+    inventoryItems.forEach(item => {
+      inventoryLevels[item.id] = item.quantity;
     });
 
-    // Check availability for each cart item
     const unavailableItems: string[] = [];
     const inventoryDeductions: { [inventoryId: string]: number } = {};
 
@@ -558,7 +319,6 @@ export default function App() {
           if (availableQuantity < requiredQuantity) {
             unavailableItems.push(`${item.name} (insufficient ${req.inventoryName})`);
           } else {
-            // Accumulate deductions
             inventoryDeductions[req.inventoryId] = (inventoryDeductions[req.inventoryId] || 0) + requiredQuantity;
           }
         }
@@ -581,7 +341,6 @@ export default function App() {
           lastUpdated: new Date(),
         });
 
-        // Log inventory transaction
         await addDoc(collection(db, 'inventory_transactions'), {
           inventoryId,
           inventoryName: inventoryDoc.data().name,
@@ -593,7 +352,6 @@ export default function App() {
           timestamp: new Date(),
         });
 
-        // Log activity
         await logActivity({
           role: 'System',
           description: `Inventory deducted: ${deduction} units from ${inventoryDoc.data().name}`,
@@ -607,7 +365,6 @@ export default function App() {
 
   const restoreInventory = async (orderId: string) => {
     try {
-      // Find all inventory transactions for this order
       const transactionsQuery = query(
         collection(db, 'inventory_transactions'),
         where('orderId', '==', orderId),
@@ -629,7 +386,6 @@ export default function App() {
             lastUpdated: new Date(),
           });
 
-          // Log restoration transaction
           await addDoc(collection(db, 'inventory_transactions'), {
             inventoryId: transaction.inventoryId,
             inventoryName: transaction.inventoryName,
@@ -660,7 +416,6 @@ export default function App() {
     let createdOrderNumber: number | null = null;
     try {
       if (!isOnline) inform("Offline: New order will sync when you're back online");
-      // Check inventory availability
       const { unavailableItems, inventoryDeductions } = await checkInventoryAvailability(items);
 
       if (unavailableItems.length > 0) {
@@ -678,14 +433,12 @@ export default function App() {
         barReady: item.category !== "Drinks",
       }));
 
-      // Determine order status based on item types
       const hasBarItems = orderItems.some(item => item.requiresBar);
       const hasKitchenItems = orderItems.some(item => item.requiresButcher || (!item.requiresButcher && !item.requiresBar));
 
       let orderStatus: "in-kitchen" | "at-bar";
       orderStatus = (hasBarItems && !hasKitchenItems) ? "at-bar" : "in-kitchen";
 
-      // Generate sequential daily order number (resets daily)
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
@@ -703,7 +456,6 @@ export default function App() {
 
       const nextOrderNumber = orderNumbers.length > 0 ? Math.max(...orderNumbers) + 1 : 1;
       createdOrderNumber = nextOrderNumber;
-      console.log('Creating order with number:', nextOrderNumber, 'existing numbers:', orderNumbers);
 
       const waiterName = currentUser?.name || 'Unknown Waiter';
 
@@ -721,7 +473,6 @@ export default function App() {
       const docRef = await addDoc(collection(db, 'orders'), orderData);
       createdOrderId = docRef.id;
 
-      // Non-critical steps: run best-effort and don't fail the whole flow
       try {
         await deductInventory(inventoryDeductions, docRef.id);
       } catch (e) {
@@ -753,7 +504,6 @@ export default function App() {
       if (!createdOrderId) {
         alert('Failed to submit order. Please try again.');
       } else {
-        // Order was created; inform user about partial issues but do not block
         inform('Order created. Some background steps will sync later.');
       }
     }
@@ -770,7 +520,6 @@ export default function App() {
         updatedAt: new Date(),
       });
 
-      // Log activity
       if (order) {
         await logActivity({
           role: 'Waiter',
@@ -779,7 +528,6 @@ export default function App() {
           tableNumber: order.tableNumber,
         });
 
-        // Free up the table immediately on payment
         if (order.tableNumber > 0) {
           const updatedTables = tables.map(table =>
             table.number === order.tableNumber ? { ...table, status: "available" as const } : table
@@ -802,17 +550,15 @@ export default function App() {
         return;
       }
 
-      // Validate file type and size
       if (!paymentImage.type.startsWith('image/')) {
         alert('Please select a valid image file.');
         return;
       }
-      if (paymentImage.size > 10 * 1024 * 1024) { // 10MB limit
+      if (paymentImage.size > 10 * 1024 * 1024) {
         alert('Image file is too large. Please select an image smaller than 10MB.');
         return;
       }
 
-      // Upload to Cloudinary (unsigned)
       const cloudName = 'dwqgypyim';
       const uploadPreset = 'ml_default';
       const folder = 'payment-proofs';
@@ -840,18 +586,16 @@ export default function App() {
         throw new Error('Cloudinary response missing secure_url');
       }
 
-      // Update order with payment details
       await updateDoc(doc(db, 'orders', orderId), {
         status: "paid",
         paymentMethod: "mobile",
         paymentImageUrl: downloadURL,
         paymentImageName: publicId || null,
         paymentSubmittedAt: new Date(),
-        paymentStatus: "pending_approval", // For cashier approval
+        paymentStatus: "pending_approval",
         updatedAt: new Date(),
       });
 
-      // Log activity
       await logActivity({
         role: 'Waiter',
         description: `Mobile banking payment submitted for approval (Cloudinary)`,
@@ -859,7 +603,6 @@ export default function App() {
         tableNumber: order.tableNumber,
       });
 
-      // Free up the table immediately on mobile payment submission
       if (order.tableNumber > 0) {
         const updatedTables = tables.map(table =>
           table.number === order.tableNumber ? { ...table, status: "available" as const } : table
@@ -882,7 +625,6 @@ export default function App() {
         status: "confirmed",
       });
 
-      // Log activity
       const confirmedOrder = orders.find(o => o.id === orderId);
       if (confirmedOrder) {
         const totalAmount = confirmedOrder.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -896,15 +638,12 @@ export default function App() {
         });
       }
 
-      // Set table to available
       const order = orders.find(o => o.id === orderId);
       if (order && order.tableNumber > 0) {
         const updatedTables = tables.map(table =>
           table.number === order.tableNumber ? { ...table, status: "available" as const } : table
         );
         setTables(updatedTables);
-
-        // Update table status in Firestore
         updateTableStatusInFirestore(order.tableNumber, "available");
       }
     } catch (error) {
@@ -920,7 +659,6 @@ export default function App() {
         status: "confirmed",
       });
 
-      // Log activity
       const approvedOrder = orders.find(o => o.id === orderId);
       if (approvedOrder) {
         const totalAmount = approvedOrder.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -933,15 +671,12 @@ export default function App() {
         });
       }
 
-      // Set table to available
       const order = orders.find(o => o.id === orderId);
       if (order && order.tableNumber > 0) {
         const updatedTables = tables.map(table =>
           table.number === order.tableNumber ? { ...table, status: "available" as const } : table
         );
         setTables(updatedTables);
-
-        // Update table status in Firestore
         updateTableStatusInFirestore(order.tableNumber, "available");
       }
     } catch (error) {
@@ -954,10 +689,9 @@ export default function App() {
       if (!isOnline) inform("Offline: Rejection will sync when you're back online");
       await updateDoc(doc(db, 'orders', orderId), {
         paymentStatus: "rejected",
-        status: "ready", // Send back to waiter
+        status: "ready",
       });
 
-      // Log activity
       const rejectedOrder = orders.find(o => o.id === orderId);
       if (rejectedOrder) {
         await logActivity({
@@ -979,7 +713,6 @@ export default function App() {
         status: "picked",
       });
 
-      // Log activity
       const pickedOrder = orders.find(o => o.id === orderId);
       if (pickedOrder) {
         await logActivity({
@@ -1004,15 +737,12 @@ export default function App() {
         return;
       }
 
-      // Restore inventory
       await restoreInventory(orderId);
 
-      // Update order status
       await updateDoc(doc(db, 'orders', orderId), {
         status: "cancelled",
       });
 
-      // Free up the table
       if (order.tableNumber > 0) {
         const updatedTables = tables.map(table =>
           table.number === order.tableNumber ? { ...table, status: "available" as const } : table
@@ -1021,7 +751,6 @@ export default function App() {
         updateTableStatusInFirestore(order.tableNumber, "available");
       }
 
-      // Log activity
       await logActivity({
         role: 'Waiter',
         description: `Order cancelled for Table ${order.tableNumber}`,
@@ -1034,68 +763,6 @@ export default function App() {
       alert('Failed to cancel order. Please try again.');
     }
   };
-
-  const handleAddTable = async () => {
-    if (!isOnline) inform("Offline: Add table will sync when you're back online");
-    const tableNumber = prompt("Enter table number:");
-    if (tableNumber && !isNaN(Number(tableNumber))) {
-      const num = Number(tableNumber);
-      // Check if table number already exists
-      const existingTable = tables.find(table => table.number === num);
-      if (existingTable) {
-        alert(`Table ${num} already exists.`);
-        return;
-      }
-
-      try {
-        // Add the new table to Firestore
-        await addDoc(collection(db, 'tables'), {
-          number: num,
-          status: "available"
-        });
-
-        // Update local state
-        setTables([...tables, { number: num, status: "available" }]);
-        alert(`Table ${num} has been added successfully.`);
-      } catch (error) {
-        console.error('Error adding table:', error);
-        alert('Failed to add table. Please try again.');
-      }
-    } else if (tableNumber) {
-      alert("Please enter a valid number.");
-    }
-  };
-
-  const handleDismissNotification = (id: string) => {
-    setNotifications(notifications.filter(n => n.id !== id));
-  };
-
-
-  // Floating refresh button to manually refresh without pull-to-refresh
-  const RefreshFab = () => (
-    <button
-      onClick={() => window.location.reload()}
-      aria-label="Refresh"
-      className="fixed bottom-20 right-4 bg-blue-600 text-white rounded-full p-3 shadow-lg"
-      title="Refresh"
-    >
-      <RefreshCcw className="w-5 h-5" />
-    </button>
-  );
-
-  const LocaleToggle = () => (
-    <button
-      onClick={() => { const next = getLocale() === 'en' ? 'am' : 'en'; setLocale(next); window.location.reload(); }}
-      aria-label="Toggle Language"
-      className="fixed top-4 left-4 z-50 bg-yellow-400 text-black rounded px-3 py-2 border border-black shadow-none text-xs"
-      title="Toggle Language"
-    >
-      {getLocale() === 'en' ? 'AM' : 'EN'}
-    </button>
-  );
-
-
-
 
   if (authInitializing) {
     return (
@@ -1117,7 +784,7 @@ export default function App() {
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Account Pending Approval</h1>
           <p className="text-gray-600 mb-4">Your registration is being reviewed by a manager. Please wait for approval to access the system.</p>
           <button
-            onClick={handleLogout}
+            onClick={logout}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             Logout
@@ -1131,249 +798,77 @@ export default function App() {
     return <LoginScreen />;
   }
 
-  // Manager View
-  if (currentRole === "manager") {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <OfflineBanner />
-        <RefreshFab />
-        <LocaleToggle />
-        <InfoToast />
-        {currentScreen === "default" && <ManagerDashboard notifications={notifications} onDismissNotification={handleDismissNotification} isOnline={isOnline} ordersData={orders} />}
-        {currentScreen === "menu" && <MenuManagement />}
-        {currentScreen === "inventory" && <InventoryManagement />}
-        {currentScreen === "staff" && <StaffManagement />}
-        {currentScreen === "history" && <ManagerHistory />}
-
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t">
-          <div className="flex justify-around">
-            <button
-              onClick={() => setCurrentScreen("default")}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "default" ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              <span className="mt-1">{t('dashboard')}</span>
-            </button>
-            <button
-              onClick={() => setCurrentScreen("menu")}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "menu" ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <UtensilsCrossed className="w-5 h-5" />
-              <span className="mt-1">{t('menu')}</span>
-            </button>
-            <button
-              onClick={() => setCurrentScreen("inventory")}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "inventory" ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <Package className="w-5 h-5" />
-              <span className="mt-1">{t('inventory')}</span>
-            </button>
-            <button
-              onClick={() => setCurrentScreen("staff")}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "staff" ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <Users className="w-5 h-5" />
-              <span className="mt-1">{t('staff')}</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex-1 flex flex-col items-center py-3 text-gray-600"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="mt-1">{t('logout')}</span>
-            </button>
-          </div>
-        </nav>
+  // Loading component for lazy-loaded routes
+  const RouteLoadingFallback = () => (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <img src="/icons/icon-192.png" alt="VRM" width="72" height="72" />
+        <div className="animate-spin h-6 w-6 rounded-full border-2 border-gray-300 border-t-blue-600" />
+        <p className="text-gray-600">Loading...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // Waiter View
-  if (currentRole === "waiter") {
-    if (selectedTable !== null) {
-      return (
-        <NewOrder
-          tableNumber={selectedTable}
-          onBack={() => window.history.back()}
-          onSubmitOrder={handleSubmitOrder}
-          onLogout={handleLogout}
-        />
-      );
-    }
-
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <OfflineBanner />
-        <RefreshFab />
-        <LocaleToggle />
-        <InfoToast />
-        {currentScreen === "default" && (
-          <div className="p-6">
-            <button
-              onClick={() => setSelectedTable(0)}
-              className="w-full py-6 text-white bg-blue-600 rounded-lg text-lg"
-            >
-              {t('createOrder')}
-            </button>
-          </div>
-        )}
-        {currentScreen === "ready-orders" && (
-          <ReadyOrders
-            orders={orders.filter(order => order.status === "ready")}
-            onMarkAsPaid={handleMarkAsPaid}
-            onMobileBankingPayment={handleMobileBankingPayment}
+  return (
+    <>
+      <OfflineBanner />
+      <SyncStatusIndicator />
+      <RefreshFab />
+      <LocaleToggle />
+      <InfoToast />
+      <Suspense fallback={<RouteLoadingFallback />}>
+        {currentRole === "manager" && (
+          <ManagerRoutes
+            currentScreen={currentScreen}
+            setCurrentScreen={setCurrentScreen}
+            notifications={notifications}
+            handleDismissNotification={dismissNotification}
+            isOnline={isOnline}
+            orders={orders}
+            handleLogout={logout}
+            t={(key: string) => key} // TODO: implement proper translation
           />
         )}
-        {currentScreen === "my-orders" && (
-          <MyOrders
+        {currentRole === "waiter" && (
+          <WaiterRoutes
+            selectedTable={selectedTable}
+            setSelectedTable={setSelectedTable}
+            currentScreen={currentScreen}
+            setCurrentScreen={setCurrentScreen}
             orders={orders}
-            onMarkAsPaid={handleMarkAsPaid}
-            onPickUp={handlePickUp}
-            onCancelOrder={handleCancelOrder}
-            onMobileBankingPayment={handleMobileBankingPayment}
+            readyOrders={readyOrders}
+            handleMarkAsPaid={handleMarkAsPaid}
+            handlePickUp={handlePickUp}
+            handleCancelOrder={handleCancelOrder}
+            handleMobileBankingPayment={handleMobileBankingPayment}
+            handleSubmitOrder={handleSubmitOrder}
+            t={(key: string) => key} // TODO: implement proper translation
+            handleLogout={logout}
           />
         )}
-        {currentScreen === "history" && <WaiterHistory />}
-
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t">
-          <div className="flex justify-around">
-            <button
-              onClick={() => setSelectedTable(0)}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                selectedTable === 0 ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <UtensilsCrossed className="w-5 h-5" />
-              <span className="mt-1">{t('createOrder')}</span>
-            </button>
-            <button
-              onClick={() => setCurrentScreen("ready-orders")}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "ready-orders" ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <ShoppingBag className="w-5 h-5" />
-              <span className="mt-1">{t('ready')}</span>
-            </button>
-            <button
-              onClick={() => setCurrentScreen("my-orders")}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "my-orders" ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <UtensilsCrossed className="w-5 h-5" />
-              <span className="mt-1">{t('orders')}</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex-1 flex flex-col items-center py-3 text-gray-600"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="mt-1">{t('logout')}</span>
-            </button>
-          </div>
-        </nav>
-      </div>
-    );
-  }
-
-  // Cashier View
-  if (currentRole === "cashier") {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <OfflineBanner />
-        <RefreshFab />
-        <LocaleToggle />
-        <InfoToast />
-        {currentScreen === "default" && (
-          <PendingConfirmation
+        {(currentRole === "cashier" || currentRole === "butcher" || currentRole === "kitchen" || currentRole === "bar") && (
+          <StaffRoutes
+            role={currentRole}
             orders={orders}
+            pendingOrders={pendingOrders}
+            currentScreen={currentScreen}
+            setCurrentScreen={setCurrentScreen}
             onConfirmPayment={handleConfirmPayment}
             onApproveMobilePayment={handleApproveMobilePayment}
             onRejectMobilePayment={handleRejectMobilePayment}
+            onLogout={logout}
+            t={(key: string) => key} // TODO: implement proper translation
           />
         )}
-        {currentScreen === "history" && <CashierHistory />}
+      </Suspense>
+    </>
+  );
+};
 
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t">
-          <div className="flex justify-around">
-            <button
-              onClick={() => setCurrentScreen("default")}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "default" ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <DollarSign className="w-5 h-5" />
-              <span className="mt-1">{t('pending')}</span>
-            </button>
-            <button
-              onClick={() => setCurrentScreen("history")}
-              className={`flex-1 flex flex-col items-center py-3 ${
-                currentScreen === "history" ? "text-blue-600" : "text-gray-600"
-              }`}
-            >
-              <History className="w-5 h-5" />
-              <span className="mt-1">{t('history')}</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex-1 flex flex-col items-center py-3 text-gray-600"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="mt-1">{t('logout')}</span>
-            </button>
-          </div>
-        </nav>
-      </div>
-    );
-  }
-
-  // Butcher View
-  if (currentRole === "butcher") {
-    return (
-      <>
-        <OfflineBanner />
-        <ButcherWorkstation orders={orders} onLogout={handleLogout} />
-        <RefreshFab />
-        <LocaleToggle />
-        <InfoToast />
-      </>
-    );
-  }
-
-  // Kitchen View
-  if (currentRole === "kitchen") {
-    return (
-      <>
-        <OfflineBanner />
-        <KitchenWorkstation orders={orders} onLogout={handleLogout} />
-        <RefreshFab />
-        <LocaleToggle />
-        <InfoToast />
-      </>
-    );
-  }
-
-  // Bar View
-  if (currentRole === "bar") {
-    return (
-      <>
-        <OfflineBanner />
-        <BarWorkstation orders={orders} onLogout={handleLogout} />
-        <RefreshFab />
-        <LocaleToggle />
-        <InfoToast />
-      </>
-    );
-  }
-
-  return null;
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 }

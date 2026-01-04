@@ -18,7 +18,7 @@ interface Order {
   orderNumber?: number;
   tableNumber: number;
   status: "pending" | "in-kitchen" | "at-bar" | "ready" | "paid" | "confirmed" | "picked";
-  items: { name: string; quantity: number; price: number; requiresButcher?: boolean; butcherReady?: boolean; requiresBar?: boolean; barReady?: boolean }[];
+  items: { name: string; quantity: number; price: number; requiresButcher?: boolean; butcherReady?: boolean; requiresBar?: boolean; barReady?: boolean; imageUrl?: string }[];
   timeElapsed: string;
   createdAt: Date;
   paymentMethod?: "cash" | "mobile";
@@ -43,22 +43,22 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
 
   const lc = getLocale();
   const L = {
-    title: lc === 'am' ? 'የቡችር የስራ ጣቢያ' : 'Butcher Workstation',
+    title: lc === 'am' ? 'ሉካንዳ' : 'Butcher Workstation',
     historyTitle: lc === 'am' ? '📚 ታሪክ (የተጠናቀቁ ትዕዛዞች)' : '📚 History (Completed Orders)',
     productionSummary: lc === 'am' ? 'የምርት ማጠቃለያ' : 'Production Summary',
     todoTitle: lc === 'am' ? '📋 የሚደረጉ (በመጠባበቅ ላይ) ትዕዛዞች' : '📋 To-Do List (Pending Orders)',
     completed: lc === 'am' ? 'ተጠናቋል' : 'Completed',
     prepped: lc === 'am' ? 'ተዘጋጀ' : 'Prepped',
     order: lc === 'am' ? 'ትዕዛዝ #' : 'Order #',
-    table: lc === 'am' ? 'ጠረጴዛ' : 'Table',
-    waiter: lc === 'am' ? 'አገልጋይ' : 'Waiter',
-    unknownWaiter: lc === 'am' ? 'ያልታወቀ አገልጋይ' : 'Unknown Waiter',
+    table: lc === 'am' ? '' : '',
+    waiter: lc === 'am' ? 'አስተናጋጅ' : 'Waiter',
+    unknownWaiter: lc === 'am' ? 'ያልታወቀ አስተናጋጅ' : 'Unknown Waiter',
     historyBatch: lc === 'am' ? 'የታሪክ ጥቅል' : 'History Batch',
     fromOrders: (n: number) => lc === 'am' ? `ከ ${n} ትዕዛዞች` : `from ${n} Orders`,
-    noCompleted: lc === 'am' ? 'የተጠናቀቁ ቡችር ትዕዛዞች የሉም' : 'No completed butcher orders yet',
-    noPending: lc === 'am' ? 'የቡችር ዝግጅት የሚፈልጉ ትዕዛዞች የሉም' : 'No pending orders requiring butcher preparation',
-    waitingForButcher: lc === 'am' ? 'በቡችር ላይ በመጠባበቅ ላይ' : 'Waiting for Butcher',
-    waitingForBar: lc === 'am' ? 'በባር ላይ በመጠባበቅ ላይ' : 'Waiting for Bar',
+    noCompleted: lc === 'am' ? 'የተጠናቀቁ ሉካንዳ ትዕዛዞች የሉም' : 'No completed butcher orders yet',
+    noPending: lc === 'am' ? 'የሉካንዳ ዝግጅት የሚፈልጉ ትዕዛዞች የሉም' : 'No pending orders requiring butcher preparation',
+    waitingForButcher: lc === 'am' ? 'ሉካንዳ በመጠባበቅ ላይ' : 'Waiting for Butcher',
+    waitingForBar: lc === 'am' ? 'መጠጥ በመጠባበቅ ላይ' : 'Waiting for Bar',
   };
 
   // Fetch butcher menu items
@@ -73,6 +73,7 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
 
     return () => unsubscribe();
   }, []);
+
 
   const handleManualPrep = async () => {
     if (!selectedItemType || prepQuantity <= 0) return;
@@ -441,7 +442,9 @@ export function ButcherWorkstation({ orders, onLogout }: ButcherWorkstationProps
                                   key={itemIndex}
                                   className="flex items-center justify-between p-2 bg-gray-50 rounded"
                                 >
-                                  <span>{item.quantity}x {item.name}</span>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-lg">{item.quantity}x {item.name}</span>
+                                  </div>
                                   <Button
                                     size="sm"
                                     className="bg-green-600 hover:bg-green-700"

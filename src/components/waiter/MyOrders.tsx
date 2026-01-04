@@ -32,23 +32,23 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
   const lc = getLocale();
   const L = {
     title: lc === 'am' ? 'የእኔ ትዕዛዞች' : 'My Orders',
-    table: lc === 'am' ? 'ጠረጴዛ' : 'Table',
-    items: lc === 'am' ? 'ንጥሎች' : 'Items',
+    table: lc === 'am' ? '' : '',
+    items: lc === 'am' ? 'አይነቶች' : 'Items',
     total: lc === 'am' ? 'ጠቅላላ' : 'Total',
-    empty: lc === 'am' ? 'ምንም ንቁ ትዕዛዞች የሉም' : 'No active orders',
+    empty: lc === 'am' ? 'ምንም ትዕዛዞች የሉም' : 'No active orders',
     cancelOrder: lc === 'am' ? 'ትዕዛዙን ሰርዝ' : 'Cancel Order',
-    generateBill: lc === 'am' ? 'መጨረሻ ቢል ፍጠር' : 'Generate Final Bill',
-    pickUp: lc === 'am' ? 'መውሰድ' : 'Pick Up',
-    markAsPaid: lc === 'am' ? 'ክፍያ ተከፍሏል ይሉ' : 'Mark as Paid',
+    generateBill: lc === 'am' ? 'የመጨረሻ ሂሳብ' : 'Generate Final Bill',
+    pickUp: lc === 'am' ? 'ውሰድ' : 'Pick Up',
+    markAsPaid: lc === 'am' ? 'እንደተከፈለ ምልክት አድርግ' : 'Mark as Paid',
     paid: lc === 'am' ? 'ክፍያ ተከፍሏል' : 'Paid',
     paymentMethodTitle: lc === 'am' ? 'የክፍያ ዘዴን ይምረጡ' : 'Select Payment Method',
     cash: lc === 'am' ? 'ጥሬ ገንዘብ' : 'Cash',
     mobileUpload: lc === 'am' ? 'ሞባይል ባንክ ክፍያ (ማስረጃ ያስገቡ)' : 'Mobile Banking (Upload Proof)',
   };
   const STATUS = {
-    ready: lc === 'am' ? 'ለመውሰድ ዝግ ነው' : 'Ready for Pickup',
+    ready: lc === 'am' ? 'ለመውሰድ ዝግጁ ነው' : 'Ready for Pickup',
     picked: lc === 'am' ? 'ተወሰደ' : 'Picked Up',
-    inKitchen: lc === 'am' ? 'በምግብ ቤት ውስጥ' : 'In Kitchen',
+    inKitchen: lc === 'am' ? 'ማዕድ ቤት ውስጥ' : 'In Kitchen',
     paid: lc === 'am' ? 'ክፍያ ተከፍሏል' : 'Paid',
     pending: lc === 'am' ? 'በመጠባበቅ ላይ' : 'Pending',
   };
