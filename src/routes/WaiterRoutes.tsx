@@ -45,6 +45,7 @@ interface WaiterRoutesProps {
   handleCancelOrder: (orderId: string) => void;
   handleMobileBankingPayment: (orderId: string, paymentImage: File) => void;
   handleSubmitOrder: (tableNumber: number, items: CartItem[]) => void;
+  handleUpdateOrder: (orderId: string, items: CartItem[]) => void;
   t: (key: string) => string;
   handleLogout: () => void;
 }
@@ -61,6 +62,7 @@ export const WaiterRoutes: React.FC<WaiterRoutesProps> = ({
   handleCancelOrder,
   handleMobileBankingPayment,
   handleSubmitOrder,
+  handleUpdateOrder,
   t,
   handleLogout,
 }) => {
@@ -101,6 +103,7 @@ export const WaiterRoutes: React.FC<WaiterRoutesProps> = ({
           onPickUp={handlePickUp}
           onCancelOrder={handleCancelOrder}
           onMobileBankingPayment={handleMobileBankingPayment}
+          onUpdateOrder={handleUpdateOrder}
         />
       )}
 

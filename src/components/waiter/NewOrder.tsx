@@ -34,7 +34,7 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
   const [cart, setCart] = useState<CartItem[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<'butchers' | 'drinks'>('butchers');
+  const [selectedCategory, setSelectedCategory] = useState<'food' | 'drinks' | 'desserts'>('food');
 
   // Fetch menu items from Firebase
   useEffect(() => {
@@ -152,10 +152,10 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
       <div className="p-4">
         <div className="flex gap-2 mb-4">
           <Button
-            onClick={() => setSelectedCategory('butchers')}
-            className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'butchers' ? 'bg-orange-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-orange-300'}`}
+            onClick={() => setSelectedCategory('food')}
+            className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'food' ? 'bg-orange-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-orange-300'}`}
           >
-            🥩 Butchers
+            🥘 Food
           </Button>
           <Button
             onClick={() => setSelectedCategory('drinks')}
@@ -163,10 +163,16 @@ export function NewOrder({ tableNumber, onBack, onSubmitOrder, onLogout }: NewOr
           >
             🍹 Drinks
           </Button>
+          <Button
+            onClick={() => setSelectedCategory('desserts')}
+            className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'desserts' ? 'bg-amber-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-amber-300'}`}
+          >
+            🍰 Desserts
+          </Button>
         </div>
 
         {(() => {
-          const categoriesToShow = selectedCategory === 'butchers' ? ['Food-Butcher', 'Food', 'Desserts'] : ['Drinks'];
+          const categoriesToShow = selectedCategory === 'food' ? ['Food-Butcher', 'Food'] : selectedCategory === 'drinks' ? ['Drinks'] : ['Desserts'];
           return categoriesToShow.map((category) => {
             const itemsInCategory = filteredItems.filter((item) => item.category === category);
             if (itemsInCategory.length === 0) return null;

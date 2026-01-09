@@ -509,6 +509,96 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const handleUpdateOrder = async (orderId: string, additionalItems: CartItem[]) => {
+    try {
+      if (!isOnline) inform("Offline: Order update will sync when you're back online");
+      
+      const { unavailableItems, inventoryDeductions } = await checkInventoryAvailability(additionalItems);
+
+      if (unavailableItems.length > 0) {
+        alert(`Cannot add items. Unavailable items:\n${unavailableItems.join('\n')}`);
+        return;
+      }
+
+      const orderRef = doc(db, 'orders', orderId);
+      const orderDoc = await getDoc(orderRef);
+      
+      if (!orderDoc.exists()) {
+        alert('Order not found');
+        return;
+      }
+
+      const currentOrder = orderDoc.data();
+      const currentItems = currentOrder.items || [];
+
+      const newItems = [...currentItems];
+      
+      additionalItems.forEach(newItem => {
+        const existingItemIndex = newItems.findIndex((item: any) => item.name === newItem.name);
+        if (existingItemIndex >= 0) {
+          newItems[existingItemIndex].quantity += newItem.quantity;
+        } else {
+          newItems.push({
+            name: newItem.name,
+            quantity: newItem.quantity,
+            price: newItem.price,
+            requiresButcher: newItem.category === "Food-Butcher",
+            butcherReady: newItem.category !== "Food-Butcher",
+            requiresBar: newItem.category === "Drinks",
+            barReady: newItem.category !== "Drinks",
+          });
+        }
+      });
+
+      const newItemsList = additionalItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        requiresButcher: item.category === "Food-Butcher",
+        butcherReady: item.category !== "Food-Butcher",
+        requiresBar: item.category === "Drinks",
+        barReady: item.category !== "Drinks",
+      }));
+
+      const hasBarItems = newItemsList.some(item => item.requiresBar);
+      const hasKitchenItems = newItemsList.some(item => item.requiresButcher || (!item.requiresButcher && !item.requiresBar));
+
+      let newStatus = currentOrder.status;
+      if (["ready", "picked", "paid", "confirmed"].includes(currentOrder.status)) {
+         newStatus = (hasBarItems && !hasKitchenItems) ? "at-bar" : "in-kitchen";
+      } else {
+         if (currentOrder.status === "at-bar" && hasKitchenItems) {
+            newStatus = "in-kitchen";
+         }
+      }
+
+      await updateDoc(orderRef, {
+        items: newItems,
+        status: newStatus,
+        updatedAt: new Date(),
+      });
+
+      try {
+        await deductInventory(inventoryDeductions, orderId);
+      } catch (e) {
+        console.warn('Inventory deduct failed:', e);
+      }
+
+      await logActivity({
+        role: 'Waiter',
+        description: `Added items to Order #${currentOrder.orderNumber || orderId}: ${additionalItems.map(i => `${i.quantity}x ${i.name}`).join(', ')}`,
+        orderId,
+        tableNumber: currentOrder.tableNumber,
+      });
+
+      inform('Items added to order successfully');
+
+    } catch (error) {
+      console.error('Error updating order:', error);
+      alert('Failed to update order.');
+    }
+  };
+
   const handleMarkAsPaid = async (orderId: string, paymentMethod: "cash" | "mobile") => {
     try {
       if (!isOnline) inform("Offline: Mark as paid will sync when you're back online");
@@ -844,6 +934,7 @@ const AppContent: React.FC = () => {
             handleCancelOrder={handleCancelOrder}
             handleMobileBankingPayment={handleMobileBankingPayment}
             handleSubmitOrder={handleSubmitOrder}
+            handleUpdateOrder={handleUpdateOrder}
             t={(key: string) => key} // TODO: implement proper translation
             handleLogout={logout}
           />
