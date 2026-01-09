@@ -12,6 +12,7 @@ interface Order {
   timeElapsed: string;
   createdAt: Date;
   waiterName?: string;
+  pickedUpBy?: string;
 }
 
 interface WaiterDashboardProps {
@@ -136,6 +137,8 @@ export const WaiterDashboard: React.FC<WaiterDashboardProps> = ({
                 <div>
                   <p className="font-medium">Order #{order.orderNumber || order.id}</p>
                   <p className="text-sm text-gray-600">Table {order.tableNumber}</p>
+                  {order.waiterName && <p className="text-xs text-gray-500">Waiter: {order.waiterName}</p>}
+                  {order.pickedUpBy && <p className="text-xs text-gray-500">Picked by: {order.pickedUpBy}</p>}
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium text-green-600">

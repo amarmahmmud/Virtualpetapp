@@ -14,6 +14,8 @@ interface Order {
   items: { name: string; quantity: number; price: number }[];
   timeElapsed: string;
   createdAt: Date;
+  waiterName?: string;
+  pickedUpBy?: string;
 }
 
 interface MyOrdersProps {
@@ -89,6 +91,8 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
               status={order.status}
               itemCount={order.items.length}
               timeElapsed={order.timeElapsed}
+              waiterName={order.waiterName}
+              pickedUpBy={order.pickedUpBy}
               onClick={() => setSelectedOrder(order)}
             />
           ))}

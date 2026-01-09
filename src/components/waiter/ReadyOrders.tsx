@@ -5,6 +5,28 @@ import { Card } from "../ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Badge } from "../ui/badge";
 
+// Copied from OrderCard.tsx for consistency
+const statusColors = {
+  pending: "bg-orange-500",
+  "in-kitchen": "bg-orange-500",
+  "at-bar": "bg-purple-500",
+  ready: "bg-green-500",
+  picked: "bg-purple-500",
+  paid: "bg-blue-500",
+  confirmed: "bg-gray-500",
+};
+
+const statusLabels = {
+  pending: "Pending",
+  "in-kitchen": "In Kitchen",
+  "at-bar": "At Bar",
+  ready: "Ready for Pickup",
+  picked: "Picked Up",
+  paid: "Paid",
+  confirmed: "Confirmed",
+};
+
+
 interface Order {
   id: string;
   orderNumber?: number;
@@ -13,15 +35,18 @@ interface Order {
   items: { name: string; quantity: number; price: number }[];
   timeElapsed: string;
   createdAt: Date;
+  waiterName?: string;
+  pickedUpBy?: string;
 }
 
 interface ReadyOrdersProps {
   orders: Order[];
   onMarkAsPaid: (orderId: string, paymentMethod: "cash" | "mobile") => void;
   onMobileBankingPayment: (orderId: string, paymentImage: File) => void;
+  onPickUp: (orderId: string) => void;
 }
 
-export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: ReadyOrdersProps) {
+export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment, onPickUp }: ReadyOrdersProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [showMobileBanking, setShowMobileBanking] = useState(false);
@@ -90,6 +115,13 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
     input.click();
   };
 
+  const handleCardClick = (order: Order) => {
+      if (order.status !== 'ready') {
+          setSelectedOrder(order)
+      }
+      // if status is ready, do nothing, because the button is on the card
+  }
+
   return (
     <div className="p-4 space-y-4 pb-20">
       <h2>Ready Orders</h2>
@@ -109,7 +141,10 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
               status={order.status}
               itemCount={order.items.length}
               timeElapsed={order.timeElapsed}
-              onClick={() => setSelectedOrder(order)}
+              waiterName={order.waiterName}
+              pickedUpBy={order.pickedUpBy}
+              onClick={() => handleCardClick(order)}
+              onPickUp={onPickUp}
             />
           ))}
         </div>
@@ -124,8 +159,8 @@ export function ReadyOrders({ orders, onMarkAsPaid, onMobileBankingPayment }: Re
             <div className="space-y-4">
               <div>
                 <p className="text-gray-600">Table {selectedOrder.tableNumber}</p>
-                <Badge className="mt-2 bg-green-500 text-white border-0">
-                  Ready for Pickup
+                <Badge className={`mt-2 ${statusColors[selectedOrder.status]} text-white border-0`}>
+                  {statusLabels[selectedOrder.status]}
                 </Badge>
               </div>
 

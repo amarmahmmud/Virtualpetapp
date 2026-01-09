@@ -29,6 +29,8 @@ interface Order {
   paymentImageName?: string;
   paymentSubmittedAt?: Date;
   paymentStatus?: "pending_approval" | "approved" | "rejected";
+  pickedUpBy?: string;
+  pickedUpAt?: Date;
 }
 
 interface WaiterRoutesProps {
@@ -89,6 +91,7 @@ export const WaiterRoutes: React.FC<WaiterRoutesProps> = ({
           orders={readyOrders}
           onMarkAsPaid={handleMarkAsPaid}
           onMobileBankingPayment={handleMobileBankingPayment}
+          onPickUp={handlePickUp}
         />
       )}
       {currentScreen === "my-orders" && (

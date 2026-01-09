@@ -22,6 +22,7 @@ interface Order {
   createdAt: Date;
   paymentMethod?: "cash" | "mobile";
   waiterName?: string;
+  pickedUpBy?: string;
 }
 
 const historyData = [
@@ -214,6 +215,7 @@ export function KitchenWorkstation({ orders, onLogout }: KitchenWorkstationProps
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="font-medium">
                                     {L.order}{order.orderNumber || order.id} - {L.table} {order.tableNumber} - {order.waiterName || L.unknownWaiter}
+                                    {order.pickedUpBy && <span className="text-xs text-gray-500 ml-2">(Picked by: {order.pickedUpBy})</span>}
                                   </span>
                                   <Badge className="bg-green-600">{order.status === 'ready' ? L.ready : order.status}</Badge>
                                 </div>

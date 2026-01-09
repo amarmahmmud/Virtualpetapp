@@ -24,6 +24,8 @@ export interface Order {
   paymentImageName?: string;
   paymentSubmittedAt?: Date;
   paymentStatus?: "pending_approval" | "approved" | "rejected";
+  pickedUpBy?: string;
+  pickedUpAt?: Date;
 }
 
 export const useOrders = (pageSize: number = 50, statusFilter?: string) => {

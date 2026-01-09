@@ -1,107 +1,197 @@
 rules_version = '2';
+
 service cloud.firestore {
+
   match /databases/{database}/documents {
 
+
     // Helper function to get the staff document data
+
     function getStaffData() {
+
       return request.auth != null &&
+
              request.auth.token.email != null ?
+
              get(/databases/$(database)/documents/staff/$(request.auth.token.email)).data :
+
              null;
+
     }
+
 
     // Helper function to check user role
+
     function getUserRole() {
+
       let data = getStaffData();
+
       return data != null ? data.role : null;
+
     }
+
 
     // Helper function to check if user is approved
+
     function isApprovedUser() {
+
       let data = getStaffData();
+
       return data != null && data.status == 'approved';
+
     }
+
 
     // Helper function to check if the requesting user is an approved Manager
+
     function isManager() {
+
       let data = getStaffData();
+
       return data != null && data.role == 'Manager' && data.status == 'approved';
+
     }
+
 
     // Consolidated rule for staff documents
+
     match /staff/{userId} {
+
       allow read, write: if request.auth != null && (
+
         request.auth.token.email == userId ||
+
         isManager()
+
       );
+
       allow create: if request.auth == null && userId == request.resource.data.email;
+
     }
+
 
     // Rules for the TABLES collection
+
     match /tables/{tableId} {
+
       // All approved staff can read table status
+
       allow read: if isApprovedUser();
+
 
       // Only Managers can delete or freely modify tables
+
       allow write: if isManager();
+
 
       // Allow Waiters to CREATE new tables (The fix for your current error)
+
       allow create: if isApprovedUser() && getUserRole() == 'Waiter';
+
 
       // Waiters can only update specific status fields
+
       allow update: if getUserRole() == 'Waiter' &&
+
                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'currentOrder', 'updatedAt']);
+
     }
+
 
     match /orders/{orderId} {
+
       // Managers can read/write all orders
+
       allow read, write: if isManager();
+
       // All approved staff can read orders
+
       allow read: if isApprovedUser();
+
       // Allow creating orders (waiters)
+
       allow create: if isApprovedUser() && getUserRole() == 'Waiter';
 
+
       // Allow updating orders for status changes
+
       allow update: if isApprovedUser() && (
+
         // Waiters can update status/payment fields + common fields
-        (getUserRole() == 'Waiter' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paymentMethod', 'updatedAt', 'orderNumber', 'paymentImageUrl', 'paymentImageName', 'paymentSubmittedAt', 'paymentStatus'])) ||
+        (getUserRole() == 'Waiter' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paymentMethod', 'updatedAt', 'orderNumber', 'paymentImageUrl', 'paymentImageName', 'paymentSubmittedAt', 'paymentStatus', 'pickedUpBy', 'pickedUpAt'])) ||
+
         // Cashiers can confirm payments + common fields
+
         (getUserRole() == 'Cashier' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'orderNumber', 'paymentStatus'])) ||
-        // Kitchen can mark orders ready + common fields
-        (getUserRole() == 'Kitchen' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'orderNumber'])) ||
+
+        // Kitchen can mark orders ready/picked + common fields
+
+        (getUserRole() == 'Kitchen' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'orderNumber', 'pickedUpBy'])) ||
+
         // Butchers can update items + common fields
+
         (getUserRole() == 'Butcher' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['items', 'updatedAt', 'orderNumber'])) ||
+
         // Bar staff can update items/status + common fields
+
         (getUserRole() == 'Bar' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['items', 'status', 'updatedAt', 'orderNumber']))
+
       );
+
     }
+
 
     match /menu/{itemId} {
+
       // Allow all authenticated users to read menu items
+
       allow read: if request.auth != null;
+
       // Allow managers to write menu items
+
       allow write: if isManager();
+
     }
+
 
     match /inventory/{itemId} {
+
       // Allow all authenticated users to read inventory
+
       allow read: if request.auth != null;
+
       // Allow managers to write inventory
+
       allow write: if isManager();
+
     }
+
 
     match /inventory_transactions/{transactionId} {
+
       // Allow approved users to read inventory transactions
+
       allow read: if isApprovedUser();
+
       // Allow all approved users to create inventory transactions (for logging)
+
       allow create: if isApprovedUser();
+
     }
 
+
     match /activities/{activityId} {
+
       // Allow approved users to read activities
+
       allow read: if isApprovedUser();
+
       // Allow all approved users to create activities (for logging)
+
       allow create: if isApprovedUser();
+
     }
+
   }
+
 }

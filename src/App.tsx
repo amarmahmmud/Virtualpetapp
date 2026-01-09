@@ -711,6 +711,8 @@ const AppContent: React.FC = () => {
       if (!isOnline) inform("Offline: Pickup will sync when you're back online");
       await updateDoc(doc(db, 'orders', orderId), {
         status: "picked",
+        pickedUpBy: currentUser?.name || 'Unknown Waiter',
+        pickedUpAt: new Date(),
       });
 
       const pickedOrder = orders.find(o => o.id === orderId);
