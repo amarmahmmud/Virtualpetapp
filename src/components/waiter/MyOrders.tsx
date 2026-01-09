@@ -191,13 +191,14 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
       )}
 
       <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open: boolean) => { if (!open) { if (showAddItems) setShowAddItems(false); else setSelectedOrder(null); } }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{showAddItems ? `Add Items to Order #${selectedOrder?.orderNumber || selectedOrder?.id}` : `Order #${selectedOrder?.orderNumber || selectedOrder?.id}`}</DialogTitle>
           </DialogHeader>
           {showAddItems ? (
-            <div className="space-y-4">
-              <div className="relative">
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <div className="space-y-4 shrink-0 pb-2">
+                <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   placeholder="Search menu items..."
@@ -226,6 +227,8 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
                   🍰 Desserts
                 </Button>
               </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
               {(() => {
                 const categoriesToShow = selectedCategory === 'food' ? ['Food-Butcher', 'Food'] : selectedCategory === 'drinks' ? ['Drinks'] : ['Desserts'];
                 return categoriesToShow.map((category) => {
@@ -270,8 +273,9 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
                   );
                 });
               })()}
+              </div>
               {cart.length > 0 && (
-                <div className="mt-4 p-4 bg-white border-t">
+                <div className="shrink-0 mt-4 p-4 bg-white border-t">
                   <h3 className="text-lg font-semibold mb-3">Cart ({getCartTotalItems()} items)</h3>
                   <div className="space-y-3 max-h-60 overflow-y-auto">
                     {cart.map((item) => (
