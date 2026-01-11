@@ -191,13 +191,13 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
       )}
 
       <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open: boolean) => { if (!open) { if (showAddItems) setShowAddItems(false); else setSelectedOrder(null); } }}>
-        <DialogContent className="max-h-[90vh] flex flex-col">
+        <DialogContent className={`max-h-[85vh] overflow-y-auto ${showAddItems ? 'sm:max-w-2xl w-[95vw]' : 'w-full sm:max-w-lg'}`}>
           <DialogHeader>
             <DialogTitle>{showAddItems ? `Add Items to Order #${selectedOrder?.orderNumber || selectedOrder?.id}` : `Order #${selectedOrder?.orderNumber || selectedOrder?.id}`}</DialogTitle>
           </DialogHeader>
           {showAddItems ? (
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <div className="space-y-4 shrink-0 pb-2">
+            <div className="flex flex-col">
+              <div className="space-y-4 pb-4">
                 <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
@@ -228,7 +228,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
                 </Button>
               </div>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="pr-1">
               {(() => {
                 const categoriesToShow = selectedCategory === 'food' ? ['Food-Butcher', 'Food'] : selectedCategory === 'drinks' ? ['Drinks'] : ['Desserts'];
                 return categoriesToShow.map((category) => {
@@ -237,35 +237,33 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
                   return (
                     <div key={category} className="mb-6">
                       <h3 className="text-lg font-semibold mb-3">{category}</h3>
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {itemsInCategory.map((item) => (
                           <Card
                             key={item.id}
-                            className="p-4 cursor-pointer hover:bg-gray-50"
+                            className="p-3 cursor-pointer hover:bg-gray-50 flex flex-col justify-between"
                             onClick={() => addToCart(item)}
                           >
-                            <div className="flex flex-col items-center gap-3">
+                            <div className="flex flex-col items-center gap-2">
                               {item.imageUrl ? (
                                 <img
                                   src={item.imageUrl}
                                   alt={item.name}
-                                  width={100}
-                                  height={100}
-                                  className="h-[100px] w-[100px] object-contain rounded border flex-shrink-0"
+                                  className="h-24 w-24 object-contain rounded border flex-shrink-0 bg-white"
                                 />
                               ) : (
-                                <div className="h-[100px] w-[100px] rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
+                                <div className="h-24 w-24 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
                                   No Image
                                 </div>
                               )}
-                              <div className="text-center min-w-0">
-                                <p className="text-sm font-medium truncate">{item.name}</p>
+                              <div className="text-center w-full">
+                                <p className="text-sm font-medium truncate w-full" title={item.name}>{item.name}</p>
                                 <p className="text-sm text-gray-600 mt-1">${item.price.toFixed(2)}</p>
                               </div>
-                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                                Add
-                              </Button>
                             </div>
+                            <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700">
+                              Add
+                            </Button>
                           </Card>
                         ))}
                       </div>
@@ -275,7 +273,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
               })()}
               </div>
               {cart.length > 0 && (
-                <div className="shrink-0 mt-4 p-4 bg-white border-t">
+                <div className="mt-4 p-4 bg-white border-t sticky bottom-0 shadow-lg">
                   <h3 className="text-lg font-semibold mb-3">Cart ({getCartTotalItems()} items)</h3>
                   <div className="space-y-3 max-h-60 overflow-y-auto">
                     {cart.map((item) => (
@@ -371,7 +369,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
                 </div>
               </div>
 
-              {selectedOrder.status !== "confirmed" && (
+              {selectedOrder.status !== "paid" && (
                 <Button
                   className="w-full bg-blue-600 hover:bg-blue-700"
                   onClick={() => setShowAddItems(true)}
