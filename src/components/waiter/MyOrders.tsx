@@ -278,21 +278,21 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
               
               {/* Cart Section - Fixed at bottom */}
               {cart.length > 0 && (
-                <div className="shrink-0 mt-4 pt-4 bg-white border-t flex flex-col">
+                <div className="shrink-0 max-h-32 overflow-hidden mt-4 pt-4 bg-white border-t flex flex-col">
                   <h3 className="text-lg font-semibold mb-3">Cart ({getCartTotalItems()} items)</h3>
-                  <div className="flex-1 overflow-y-auto min-h-0 max-h-32 space-y-2">
+                  <div className="max-h-28 overflow-y-auto space-y-2">
                     {cart.map((item) => (
                       <Card key={item.id} className="p-3">
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between gap-3 py-2">
                           <div className="flex items-center gap-3 min-w-0">
                             {item.imageUrl ? (
                               <img
                                 src={item.imageUrl}
                                 alt={item.name}
-                                className="h-10 w-10 object-cover rounded border flex-shrink-0"
+                                className="w-12 h-12 object-cover rounded border flex-shrink-0"
                               />
                             ) : (
-                              <div className="h-10 w-10 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
+                              <div className="w-12 h-12 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
                                 No Image
                               </div>
                             )}
@@ -322,17 +322,26 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
                       </Card>
                     ))}
                   </div>
-                  <div className="mt-4 pt-3 border-t">
+                  <div className="shrink-0 border-t p-3">
                     <div className="flex justify-between mb-3">
                       <span>Total:</span>
                       <span>${getCartTotalPrice().toFixed(2)}</span>
                     </div>
-                    <Button
-                      className="w-full bg-green-600 hover:bg-green-700"
-                      onClick={handleSubmit}
-                    >
-                      Add to Order
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setCart([])}
+                      >
+                        Clear Cart
+                      </Button>
+                      <Button
+                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        onClick={handleSubmit}
+                      >
+                        Update Order
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
