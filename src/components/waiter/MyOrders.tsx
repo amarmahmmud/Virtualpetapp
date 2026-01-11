@@ -278,9 +278,9 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
               
               {/* Cart Section - Fixed at bottom */}
               {cart.length > 0 && (
-                <div className="shrink-0 mt-4 pt-4 bg-white border-t">
+                <div className="shrink-0 mt-4 pt-4 bg-white border-t flex flex-col">
                   <h3 className="text-lg font-semibold mb-3">Cart ({getCartTotalItems()} items)</h3>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto min-h-0 max-h-32">
                     {cart.map((item) => (
                       <Card key={item.id} className="p-3">
                         <div className="flex items-center justify-between gap-3">
