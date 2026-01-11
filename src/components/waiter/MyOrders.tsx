@@ -191,12 +191,12 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
       )}
 
       <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open: boolean) => { if (!open) { if (showAddItems) setShowAddItems(false); else setSelectedOrder(null); } }}>
-        <DialogContent className={`max-h-[80vh] flex flex-col ${showAddItems ? 'sm:max-w-2xl w-[95vw]' : 'w-full sm:max-w-lg'}`}>
-          <DialogHeader>
+        <DialogContent className={`max-h-[80dvh] flex flex-col p-0 gap-0 ${showAddItems ? 'sm:max-w-2xl w-[95vw]' : 'w-full sm:max-w-lg'}`}>
+          <DialogHeader className="p-6 pb-2">
             <DialogTitle>{showAddItems ? `Add Items to Order #${selectedOrder?.orderNumber || selectedOrder?.id}` : `Order #${selectedOrder?.orderNumber || selectedOrder?.id}`}</DialogTitle>
           </DialogHeader>
           {showAddItems ? (
-            <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+            <div className="flex flex-col flex-1 overflow-hidden min-h-0 p-6 pt-2">
               <div className="space-y-4 pb-4 shrink-0">
                 <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -273,7 +273,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
               })()}
               </div>
               {cart.length > 0 && (
-                <div className="shrink-0 mt-4 p-4 bg-white border-t shadow-lg">
+                <div className="shrink-0 mt-4 p-4 bg-white border-t shadow-lg -mx-6 -mb-6">
                   <h3 className="text-lg font-semibold mb-3">Cart ({getCartTotalItems()} items)</h3>
                   <div className="space-y-3 max-h-40 overflow-y-auto">
                     {cart.map((item) => (
