@@ -191,91 +191,96 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
       )}
 
       <Dialog open={!!selectedOrder && !showPaymentOptions} onOpenChange={(open: boolean) => { if (!open) { if (showAddItems) setShowAddItems(false); else setSelectedOrder(null); } }}>
-        <DialogContent className={`max-h-[80dvh] flex flex-col p-0 gap-0 ${showAddItems ? 'sm:max-w-2xl w-[95vw]' : 'w-full sm:max-w-lg'}`}>
-          <DialogHeader className="p-6 pb-2">
+        <DialogContent className={`max-h-[85vh] flex flex-col overflow-hidden ${showAddItems ? 'sm:max-w-2xl w-[95vw]' : 'w-full sm:max-w-lg'}`}>
+          <DialogHeader className="shrink-0">
             <DialogTitle>{showAddItems ? `Add Items to Order #${selectedOrder?.orderNumber || selectedOrder?.id}` : `Order #${selectedOrder?.orderNumber || selectedOrder?.id}`}</DialogTitle>
           </DialogHeader>
           {showAddItems ? (
-            <div className="flex flex-col flex-1 overflow-hidden min-h-0 p-6 pt-2">
+            <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+              {/* Search and Category Buttons - Fixed at top */}
               <div className="space-y-4 pb-4 shrink-0">
                 <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Search menu items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Search menu items..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setSelectedCategory('food')}
+                    className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'food' ? 'bg-orange-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-orange-300'}`}
+                  >
+                    🥘 Food
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedCategory('drinks')}
+                    className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'drinks' ? 'bg-purple-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-purple-300'}`}
+                  >
+                    🍹 Drinks
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedCategory('desserts')}
+                    className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'desserts' ? 'bg-amber-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-amber-300'}`}
+                  >
+                    🍰 Desserts
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setSelectedCategory('food')}
-                  className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'food' ? 'bg-orange-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-orange-300'}`}
-                >
-                  🥘 Food
-                </Button>
-                <Button
-                  onClick={() => setSelectedCategory('drinks')}
-                  className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'drinks' ? 'bg-purple-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-purple-300'}`}
-                >
-                  🍹 Drinks
-                </Button>
-                <Button
-                  onClick={() => setSelectedCategory('desserts')}
-                  className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${selectedCategory === 'desserts' ? 'bg-amber-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-amber-300'}`}
-                >
-                  🍰 Desserts
-                </Button>
-              </div>
-              </div>
-              <div className="flex-1 overflow-y-auto min-h-0 pr-1">
-              {(() => {
-                const categoriesToShow = selectedCategory === 'food' ? ['Food-Butcher', 'Food'] : selectedCategory === 'drinks' ? ['Drinks'] : ['Desserts'];
-                return categoriesToShow.map((category) => {
-                  const itemsInCategory = filteredItems.filter((item) => item.category === category);
-                  if (itemsInCategory.length === 0) return null;
-                  return (
-                    <div key={category} className="mb-6">
-                      <h3 className="text-lg font-semibold mb-3">{category}</h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {itemsInCategory.map((item) => (
-                          <Card
-                            key={item.id}
-                            className="p-3 cursor-pointer hover:bg-gray-50 flex flex-col justify-between"
-                            onClick={() => addToCart(item)}
-                          >
-                            <div className="flex flex-col items-center gap-2">
-                              {item.imageUrl ? (
-                                <img
-                                  src={item.imageUrl}
-                                  alt={item.name}
-                                  className="h-24 w-24 object-contain rounded border flex-shrink-0 bg-white"
-                                />
-                              ) : (
-                                <div className="h-24 w-24 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
-                                  No Image
+              
+              {/* Scrollable Menu Items List */}
+              <div className="flex-1 overflow-y-auto min-h-0 pr-1" style={{ maxHeight: 'calc(85vh - 280px)' }}>
+                {(() => {
+                  const categoriesToShow = selectedCategory === 'food' ? ['Food-Butcher', 'Food'] : selectedCategory === 'drinks' ? ['Drinks'] : ['Desserts'];
+                  return categoriesToShow.map((category) => {
+                    const itemsInCategory = filteredItems.filter((item) => item.category === category);
+                    if (itemsInCategory.length === 0) return null;
+                    return (
+                      <div key={category} className="mb-6">
+                        <h3 className="text-lg font-semibold mb-3">{category}</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {itemsInCategory.map((item) => (
+                            <Card
+                              key={item.id}
+                              className="p-3 cursor-pointer hover:bg-gray-50 flex flex-col justify-between"
+                              onClick={() => addToCart(item)}
+                            >
+                              <div className="flex flex-col items-center gap-2">
+                                {item.imageUrl ? (
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.name}
+                                    className="h-20 w-20 object-contain rounded border flex-shrink-0 bg-white"
+                                  />
+                                ) : (
+                                  <div className="h-20 w-20 rounded border bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
+                                    No Image
+                                  </div>
+                                )}
+                                <div className="text-center w-full">
+                                  <p className="text-sm font-medium truncate w-full" title={item.name}>{item.name}</p>
+                                  <p className="text-sm text-gray-600 mt-1">${item.price.toFixed(2)}</p>
                                 </div>
-                              )}
-                              <div className="text-center w-full">
-                                <p className="text-sm font-medium truncate w-full" title={item.name}>{item.name}</p>
-                                <p className="text-sm text-gray-600 mt-1">${item.price.toFixed(2)}</p>
                               </div>
-                            </div>
-                            <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700">
-                              Add
-                            </Button>
-                          </Card>
-                        ))}
+                              <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700">
+                                Add
+                              </Button>
+                            </Card>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                });
-              })()}
+                    );
+                  });
+                })()}
               </div>
+              
+              {/* Cart Section - Fixed at bottom */}
               {cart.length > 0 && (
-                <div className="shrink-0 mt-4 p-4 bg-white border-t shadow-lg -mx-6 -mb-6">
+                <div className="shrink-0 mt-4 pt-4 bg-white border-t">
                   <h3 className="text-lg font-semibold mb-3">Cart ({getCartTotalItems()} items)</h3>
-                  <div className="space-y-3 max-h-40 overflow-y-auto">
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
                     {cart.map((item) => (
                       <Card key={item.id} className="p-3">
                         <div className="flex items-center justify-between gap-3">
