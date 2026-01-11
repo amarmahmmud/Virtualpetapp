@@ -280,7 +280,7 @@ export function MyOrders({ orders, onMarkAsPaid, onPickUp, onCancelOrder, onMobi
               {cart.length > 0 && (
                 <div className="shrink-0 max-h-32 overflow-hidden mt-4 pt-4 bg-white border-t flex flex-col">
                   <h3 className="text-lg font-semibold mb-3">Cart ({getCartTotalItems()} items)</h3>
-                  <div className="max-h-28 overflow-y-auto space-y-2">
+                  <div className="flex-1 min-h-0 max-h-28 overflow-y-auto space-y-2" style={{ maxHeight: '80px' }}>
                     {cart.map((item) => (
                       <Card key={item.id} className="p-3">
                         <div className="flex items-center justify-between gap-3 py-2">
